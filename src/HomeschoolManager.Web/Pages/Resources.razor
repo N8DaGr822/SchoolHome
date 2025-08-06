@@ -1,0 +1,183 @@
+@page "/resources"
+@using Microsoft.AspNetCore.Components
+
+<PageTitle>Resources - Homeschool Manager</PageTitle>
+
+<div class="container-fluid">
+    <h1>Teaching Resources</h1>
+    
+    <div class="row">
+        <!-- Curriculum Resources -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Curriculum Resources</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="#" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Math Curriculum</h6>
+                                <small class="text-muted">K-8</small>
+                            </div>
+                            <p class="mb-1">Comprehensive math curriculum with worksheets and activities</p>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Science Experiments</h6>
+                                <small class="text-muted">All Ages</small>
+                            </div>
+                            <p class="mb-1">Hands-on science experiments and lab guides</p>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Language Arts</h6>
+                                <small class="text-muted">K-12</small>
+                            </div>
+                            <p class="mb-1">Reading lists, writing prompts, and grammar exercises</p>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">History Timeline</h6>
+                                <small class="text-muted">3-8</small>
+                            </div>
+                            <p class="mb-1">Interactive history timeline and lesson plans</p>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Teaching Tools -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Teaching Tools</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="card border-primary">
+                                <div class="card-body text-center">
+                                    <span class="oi oi-calculator" style="font-size: 2rem; color: #007bff;"></span>
+                                    <h6 class="mt-2">Grade Calculator</h6>
+                                    <p class="small text-muted">Calculate grades and GPA</p>
+                                    <button class="btn btn-sm btn-outline-primary">Open</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <span class="oi oi-clock" style="font-size: 2rem; color: #28a745;"></span>
+                                    <h6 class="mt-2">Lesson Timer</h6>
+                                    <p class="small text-muted">Track teaching time</p>
+                                    <button class="btn btn-sm btn-outline-success">Start</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card border-info">
+                                <div class="card-body text-center">
+                                    <span class="oi oi-chart" style="font-size: 2rem; color: #17a2b8;"></span>
+                                    <h6 class="mt-2">Progress Tracker</h6>
+                                    <p class="small text-muted">Monitor student progress</p>
+                                    <button class="btn btn-sm btn-outline-info">View</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card border-warning">
+                                <div class="card-body text-center">
+                                    <span class="oi oi-document" style="font-size: 2rem; color: #ffc107;"></span>
+                                    <h6 class="mt-2">Report Generator</h6>
+                                    <p class="small text-muted">Create progress reports</p>
+                                    <button class="btn btn-sm btn-outline-warning">Generate</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <!-- External Resources -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">External Resources</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Online Learning Platforms</h6>
+                                    <ul class="list-unstyled">
+                                        <li><a href="https://www.khanacademy.org" target="_blank" class="text-decoration-none">Khan Academy</a></li>
+                                        <li><a href="https://www.ixl.com" target="_blank" class="text-decoration-none">IXL Learning</a></li>
+                                        <li><a href="https://www.prodigygame.com" target="_blank" class="text-decoration-none">Prodigy Math</a></li>
+                                        <li><a href="https://www.duolingo.com" target="_blank" class="text-decoration-none">Duolingo</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Educational Videos</h6>
+                                    <ul class="list-unstyled">
+                                        <li><a href="https://www.youtube.com/c/crashcourse" target="_blank" class="text-decoration-none">Crash Course</a></li>
+                                        <li><a href="https://ed.ted.com" target="_blank" class="text-decoration-none">TED-Ed</a></li>
+                                        <li><a href="https://kids.nationalgeographic.com" target="_blank" class="text-decoration-none">National Geographic Kids</a></li>
+                                        <li><a href="https://www.youtube.com/c/scishowkids" target="_blank" class="text-decoration-none">SciShow Kids</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Printable Worksheets</h6>
+                                    <ul class="list-unstyled">
+                                        <li><a href="https://www.education.com/worksheets" target="_blank" class="text-decoration-none">Education.com</a></li>
+                                        <li><a href="https://www.superteacherworksheets.com" target="_blank" class="text-decoration-none">Super Teacher Worksheets</a></li>
+                                        <li><a href="https://www.math-drills.com" target="_blank" class="text-decoration-none">Math-Drills.com</a></li>
+                                        <li><a href="https://www.teacherspayteachers.com" target="_blank" class="text-decoration-none">Teachers Pay Teachers</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary">
+                            <span class="oi oi-plus"></span> Add New Resource
+                        </button>
+                        <button class="btn btn-outline-secondary">
+                            <span class="oi oi-upload"></span> Upload File
+                        </button>
+                        <button class="btn btn-outline-info">
+                            <span class="oi oi-search"></span> Search Resources
+                        </button>
+                        <button class="btn btn-outline-success">
+                            <span class="oi oi-share"></span> Share Resource
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div> 

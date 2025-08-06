@@ -1,0 +1,447 @@
+@page "/students"
+@using Microsoft.AspNetCore.Components
+@using HomeschoolManager.Core.Entities
+
+<PageTitle>Students - Homeschool Manager</PageTitle>
+
+<div class="container-fluid">
+    <h1>Student Management</h1>
+    
+    <div class="row">
+        <!-- Student List -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Students</h5>
+                    <button class="btn btn-primary btn-sm" @onclick="ShowAddStudentModal">
+                        <span class="oi oi-plus"></span> Add Student
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        @foreach (var student in students)
+                        {
+                            <button class="list-group-item list-group-item-action @(selectedStudent?.Id == student.Id ? "active" : "")" 
+                                    @onclick="() => SelectStudent(student)">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">@student.FirstName @student.LastName</h6>
+                                    <small>@CalculateAge(student.DateOfBirth) years old</small>
+                                </div>
+                                <p class="mb-1">Grade @student.GradeLevel</p>
+                                <small class="text-muted">@student.Courses.Count courses • @student.Assignments.Count assignments</small>
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Student Details -->
+        <div class="col-md-8">
+            @if (selectedStudent != null)
+            {
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">@selectedStudent.FirstName @selectedStudent.LastName's Profile</h5>
+                        <div>
+                            <button class="btn btn-warning btn-sm me-2" @onclick="() => ShowEditStudentModal(selectedStudent)">
+                                <span class="oi oi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-danger btn-sm" @onclick="() => DeleteStudent(selectedStudent)">
+                                <span class="oi oi-trash"></span> Delete
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Personal Information</h6>
+                                <p><strong>Age:</strong> @CalculateAge(selectedStudent.DateOfBirth) years old</p>
+                                <p><strong>Grade Level:</strong> @selectedStudent.GradeLevel</p>
+                                <p><strong>Birth Date:</strong> @selectedStudent.DateOfBirth.ToString("MM/dd/yyyy")</p>
+                                <p><strong>Email:</strong> @selectedStudent.Email</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Academic Information</h6>
+                                <p><strong>GPA:</strong> @selectedStudent.GPA.ToString("F2")</p>
+                                <p><strong>Total Credits:</strong> @selectedStudent.TotalCredits</p>
+                                <p><strong>Enrollment Date:</strong> @selectedStudent.EnrollmentDate.ToString("MM/dd/yyyy")</p>
+                                <p><strong>Last Updated:</strong> @(selectedStudent.UpdatedAt?.ToString("MM/dd/yyyy") ?? "Never")</p>
+                            </div>
+                        </div>
+                        
+                        <hr />
+                        
+                        <h6>Courses</h6>
+                        <div class="row">
+                            @foreach (var course in selectedStudent.Courses)
+                            {
+                                <div class="col-md-4 mb-2">
+                                    <span class="badge bg-primary">@course.Name</span>
+                                </div>
+                            }
+                            @if (!selectedStudent.Courses.Any())
+                            {
+                                <div class="col-12">
+                                    <p class="text-muted">No courses enrolled.</p>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="card">
+                    <div class="card-body text-center">
+                        <h5 class="text-muted">Select a Student</h5>
+                        <p class="text-muted">Choose a student from the list to view their details</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (selectedStudent != null)
+    {
+        <div class="row mt-4">
+            <!-- Grades -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Recent Grades</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (selectedStudent.Grades.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Subject</th>
+                                            <th>Assignment</th>
+                                            <th>Grade</th>
+                                            <th>Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var grade in selectedStudentGrades.Take(5))
+                                        {
+                                            <tr>
+                                                <td>@grade.Subject</td>
+                                                <td>@grade.Assignment</td>
+                                                <td><span class="badge bg-@GetGradeColor(grade.GradeValue)">@grade.GradeValue</span></td>
+                                                <td>@grade.Date.ToString("MM/dd")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted">No recent grades available.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Assignments -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Pending Assignments</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (selectedStudentAssignments.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Subject</th>
+                                            <th>Assignment</th>
+                                            <th>Due Date</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var assignment in selectedStudentAssignments.Take(5))
+                                        {
+                                            <tr>
+                                                <td>@assignment.Subject</td>
+                                                <td>@assignment.Title</td>
+                                                <td>@assignment.DueDate.ToString("MM/dd")</td>
+                                                <td><span class="badge bg-@GetStatusColor(assignment.Status)">@assignment.Status</span></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted">No pending assignments.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+<!-- Add Student Modal -->
+@if (showAddModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Student</h5>
+                    <button type="button" class="btn-close" @onclick="CloseAddStudentModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">First Name</label>
+                                <input type="text" class="form-control" @bind="newStudent.FirstName" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Last Name</label>
+                                <input type="text" class="form-control" @bind="newStudent.LastName" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" @bind="newStudent.Email" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Grade Level</label>
+                                <select class="form-select" @bind="newStudent.GradeLevel">
+                                    <option value="">Select Grade</option>
+                                    <option value="K">Kindergarten</option>
+                                    <option value="1st">1st Grade</option>
+                                    <option value="2nd">2nd Grade</option>
+                                    <option value="3rd">3rd Grade</option>
+                                    <option value="4th">4th Grade</option>
+                                    <option value="5th">5th Grade</option>
+                                    <option value="6th">6th Grade</option>
+                                    <option value="7th">7th Grade</option>
+                                    <option value="8th">8th Grade</option>
+                                    <option value="9th">9th Grade</option>
+                                    <option value="10th">10th Grade</option>
+                                    <option value="11th">11th Grade</option>
+                                    <option value="12th">12th Grade</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Date of Birth</label>
+                                <input type="date" class="form-control" @bind="newStudent.DateOfBirth" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">GPA</label>
+                                <input type="number" step="0.1" min="0" max="4" class="form-control" @bind="newStudent.GPA" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseAddStudentModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="AddStudent">Add Student</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+</div>
+
+@code {
+    private List<Student> students = new();
+    private Student? selectedStudent;
+    private List<Grade> selectedStudentGrades = new();
+    private List<Assignment> selectedStudentAssignments = new();
+    
+    private bool showAddModal = false;
+    private Student newStudent = new();
+
+    protected override void OnInitialized()
+    {
+        // Initialize with sample data
+        students = new List<Student>
+        {
+            new() { 
+                Id = 1, 
+                FirstName = "Emma", 
+                LastName = "Johnson", 
+                Email = "emma@example.com", 
+                DateOfBirth = new DateTime(2014, 3, 15), 
+                GradeLevel = "5th", 
+                GPA = 3.8, 
+                TotalCredits = 24, 
+                EnrollmentDate = new DateTime(2020, 9, 1),
+                CreatedAt = DateTime.Now.AddDays(-30),
+                Courses = new List<Course>(),
+                Assignments = new List<Assignment>(),
+                Grades = new List<Grade>()
+            },
+            new() { 
+                Id = 2, 
+                FirstName = "Liam", 
+                LastName = "Smith", 
+                Email = "liam@example.com", 
+                DateOfBirth = new DateTime(2016, 7, 22), 
+                GradeLevel = "3rd", 
+                GPA = 3.6, 
+                TotalCredits = 18, 
+                EnrollmentDate = new DateTime(2021, 9, 1),
+                CreatedAt = DateTime.Now.AddDays(-25),
+                Courses = new List<Course>(),
+                Assignments = new List<Assignment>(),
+                Grades = new List<Grade>()
+            },
+            new() { 
+                Id = 3, 
+                FirstName = "Sophia", 
+                LastName = "Davis", 
+                Email = "sophia@example.com", 
+                DateOfBirth = new DateTime(2012, 11, 8), 
+                GradeLevel = "7th", 
+                GPA = 3.9, 
+                TotalCredits = 30, 
+                EnrollmentDate = new DateTime(2019, 9, 1),
+                CreatedAt = DateTime.Now.AddDays(-20),
+                Courses = new List<Course>(),
+                Assignments = new List<Assignment>(),
+                Grades = new List<Grade>()
+            }
+        };
+
+        // Select first student by default
+        if (students.Any())
+        {
+            SelectStudent(students.First());
+        }
+    }
+
+    private void SelectStudent(Student student)
+    {
+        selectedStudent = student;
+        LoadStudentData(student);
+    }
+
+    private int CalculateAge(DateTime dateOfBirth)
+    {
+        var today = DateTime.Today;
+        var age = today.Year - dateOfBirth.Year;
+        if (dateOfBirth.Date > today.AddYears(-age)) age--;
+        return age;
+    }
+
+    private void LoadStudentData(Student student)
+    {
+        // Load grades for selected student
+        selectedStudentGrades = new List<Grade>
+        {
+            new() { Subject = "Math", Assignment = "Fractions Test", GradeValue = "A", Date = DateTime.Now.AddDays(-2) },
+            new() { Subject = "Science", Assignment = "Experiment Report", GradeValue = "A-", Date = DateTime.Now.AddDays(-5) },
+            new() { Subject = "Language Arts", Assignment = "Book Report", GradeValue = "B+", Date = DateTime.Now.AddDays(-7) },
+            new() { Subject = "History", Assignment = "Timeline Project", GradeValue = "A", Date = DateTime.Now.AddDays(-10) }
+        };
+
+        // Load assignments for selected student
+        selectedStudentAssignments = new List<Assignment>
+        {
+            new() { Subject = "Math", Title = "Algebra Worksheet", DueDate = DateTime.Now.AddDays(2), Status = AssignmentStatus.Assigned },
+            new() { Subject = "Science", Title = "Lab Report", DueDate = DateTime.Now.AddDays(5), Status = AssignmentStatus.InProgress },
+            new() { Subject = "Language Arts", Title = "Essay", DueDate = DateTime.Now.AddDays(1), Status = AssignmentStatus.Assigned }
+        };
+    }
+
+    private void ShowAddStudentModal()
+    {
+        newStudent = new Student { 
+            DateOfBirth = DateTime.Today.AddYears(-6),
+            GPA = 0.0,
+            TotalCredits = 0,
+            EnrollmentDate = DateTime.Today,
+            CreatedAt = DateTime.Now
+        };
+        showAddModal = true;
+    }
+
+    private void CloseAddStudentModal()
+    {
+        showAddModal = false;
+    }
+
+    private void AddStudent()
+    {
+        if (!string.IsNullOrEmpty(newStudent.FirstName) && !string.IsNullOrEmpty(newStudent.LastName))
+        {
+            newStudent.Id = students.Max(s => s.Id) + 1;
+            newStudent.EnrollmentDate = DateTime.Now;
+            newStudent.CreatedAt = DateTime.Now;
+            newStudent.Courses = new List<Course>();
+            newStudent.Assignments = new List<Assignment>();
+            newStudent.Grades = new List<Grade>();
+            students.Add(newStudent);
+            CloseAddStudentModal();
+        }
+    }
+
+    private void ShowEditStudentModal(Student student)
+    {
+        // Implementation for editing student
+    }
+
+    private void DeleteStudent(Student student)
+    {
+        students.Remove(student);
+        if (selectedStudent?.Id == student.Id)
+        {
+            selectedStudent = students.FirstOrDefault();
+            if (selectedStudent != null)
+            {
+                LoadStudentData(selectedStudent);
+            }
+        }
+    }
+
+    private string GetGradeColor(string grade)
+    {
+        return grade switch
+        {
+            "A" or "A+" => "success",
+            "B" or "B+" => "info",
+            "C" or "C+" => "warning",
+            _ => "danger"
+        };
+    }
+
+    private string GetStatusColor(AssignmentStatus status)
+    {
+        return status switch
+        {
+            AssignmentStatus.Completed => "success",
+            AssignmentStatus.InProgress => "warning",
+            AssignmentStatus.Assigned => "secondary",
+            AssignmentStatus.Overdue => "danger",
+            _ => "secondary"
+        };
+    }
+
+} 
