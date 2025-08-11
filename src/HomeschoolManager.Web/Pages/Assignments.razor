@@ -67,7 +67,7 @@
                                     @foreach (var assignment in filteredAssignments)
                                     {
                                         <tr>
-                                            <td>@assignment.Student</td>
+                                            <td>@assignment.StudentName</td>
                                             <td>@assignment.Title</td>
                                             <td>@assignment.Subject</td>
                                             <td>@assignment.DueDate.ToString("MM/dd/yyyy")</td>
@@ -145,7 +145,7 @@
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Student</label>
-                                <select class="form-select" @bind="newAssignment.Student">
+                                <select class="form-select" @bind="newAssignment.StudentName">
                                     <option value="">Select Student</option>
                                     @foreach (var student in availableStudents)
                                     {
@@ -216,7 +216,7 @@
                 Id = 1, 
                 Title = "Math Worksheet - Fractions", 
                 Description = "Complete the fraction problems on pages 45-47", 
-                Student = "Emma", 
+                StudentName = "Emma", 
                 Subject = "Math", 
                 DueDate = DateTime.Now.AddDays(-1), 
                 Status = AssignmentStatus.Completed, 
@@ -226,7 +226,7 @@
                 Id = 2, 
                 Title = "Science Experiment Report", 
                 Description = "Write a report about the plant growth experiment", 
-                Student = "Liam", 
+                StudentName = "Liam", 
                 Subject = "Science", 
                 DueDate = DateTime.Now, 
                 Status = AssignmentStatus.InProgress, 
@@ -236,7 +236,7 @@
                 Id = 3, 
                 Title = "Book Report - Charlotte's Web", 
                 Description = "Write a book report about Charlotte's Web", 
-                Student = "Sophia", 
+                StudentName = "Sophia", 
                 Subject = "Language Arts", 
                 DueDate = DateTime.Now.AddDays(1), 
                 Status = AssignmentStatus.Assigned, 
@@ -246,7 +246,7 @@
                 Id = 4, 
                 Title = "History Timeline Project", 
                 Description = "Create a timeline of major events in American history", 
-                Student = "Noah", 
+                StudentName = "Noah", 
                 Subject = "History", 
                 DueDate = DateTime.Now.AddDays(2), 
                 Status = AssignmentStatus.Assigned, 
@@ -259,7 +259,7 @@
         .Where(a => string.IsNullOrEmpty(searchTerm) || 
                    a.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
                    a.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                   a.Student.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+                   a.StudentName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
         .Where(a => string.IsNullOrEmpty(selectedStatus) || a.Status.ToString() == selectedStatus)
         .Where(a => string.IsNullOrEmpty(selectedSubject) || a.Subject == selectedSubject)
         .OrderBy(a => a.DueDate);
@@ -277,7 +277,7 @@
 
     private void AddAssignment()
     {
-        if (!string.IsNullOrEmpty(newAssignment.Title) && !string.IsNullOrEmpty(newAssignment.Student))
+        if (!string.IsNullOrEmpty(newAssignment.Title) && !string.IsNullOrEmpty(newAssignment.StudentName))
         {
             newAssignment.Id = assignments.Max(a => a.Id) + 1;
             assignments.Add(newAssignment);

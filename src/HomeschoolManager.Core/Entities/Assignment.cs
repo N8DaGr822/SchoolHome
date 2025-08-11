@@ -16,7 +16,7 @@ public class Assignment
     // Additional properties for UI compatibility
     public string Subject { get; set; } = string.Empty;
     public string Grade { get; set; } = string.Empty;
-    public string Student { get; set; } = string.Empty; // For UI display purposes
+    public string StudentName { get; set; } = string.Empty; // For UI display purposes
     
     // Navigation properties
     public Course Course { get; set; } = null!;
