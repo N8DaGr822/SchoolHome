@@ -1,5 +1,7 @@
 @page "/teach"
 @using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@inject NavigationManager Navigation
 
 <PageTitle>Teach - Homeschool Manager</PageTitle>
 
@@ -241,6 +243,107 @@
     </div>
 </div>
 
+<!-- Progress Modal -->
+@if (showProgressModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Student Progress Overview</h5>
+                    <button type="button" class="btn-close" @onclick="CloseProgressModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Teaching Statistics</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Total Sessions:</strong> @recentSessions.Count</li>
+                                <li><strong>Total Hours:</strong> @totalTeachingHours</li>
+                                <li><strong>Average Session Length:</strong> @GetAverageSessionLength() minutes</li>
+                                <li><strong>Completed Assignments:</strong> @completedAssignments</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Subject Breakdown</h6>
+                            <div class="mb-2">
+                                <small>Math: @GetSubjectCount("Math") sessions</small>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar" style="width: @GetSubjectPercentage("Math")%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <small>Science: @GetSubjectCount("Science") sessions</small>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-success" style="width: @GetSubjectPercentage("Science")%"></div>
+                                </div>
+                            </div>
+                            <div class="mb-2">
+                                <small>Language Arts: @GetSubjectCount("Language Arts") sessions</small>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-info" style="width: @GetSubjectPercentage("Language Arts")%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseProgressModal">Close</button>
+                    <button type="button" class="btn btn-primary" @onclick="ExportProgressReport">Export Report</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<!-- Report Modal -->
+@if (showReportModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Teaching Report - @DateTime.Now.ToString("MMMM yyyy")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseReportModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <h6>Report Summary</h6>
+                        <textarea class="form-control" rows="4" @bind="reportContent" placeholder="Add notes about this month's teaching progress..."></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Monthly Statistics</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Teaching Sessions:</strong> @recentSessions.Count</li>
+                                <li><strong>Total Hours:</strong> @totalTeachingHours</li>
+                                <li><strong>Assignments Graded:</strong> @completedAssignments</li>
+                                <li><strong>Students Taught:</strong> @GetUniqueStudentCount()</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Top Subjects</h6>
+                            <ul class="list-unstyled">
+                                @foreach (var subject in GetTopSubjects())
+                                {
+                                    <li>@subject.Key: @subject.Value sessions</li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseReportModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveReport">Save Report</button>
+                    <button type="button" class="btn btn-success" @onclick="DownloadReport">Download PDF</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
 @code {
     private bool isTeachingSessionActive = false;
     private string selectedStudent = "";
@@ -257,6 +360,11 @@
     
     private int totalTeachingHours = 24;
     private int completedAssignments = 8;
+
+    // Modal states
+    private bool showProgressModal = false;
+    private bool showReportModal = false;
+    private string reportContent = "";
 
     protected override void OnInitialized()
     {
@@ -333,46 +441,88 @@
 
     private void GradeAssignments()
     {
-        // Focus on the grading section by scrolling to it
-        // In a real implementation, this would scroll to the assignment grading section
-        // For now, we'll just ensure the grading section is visible
-        StateHasChanged();
+        // Navigate to the assignments page for detailed grading
+        Navigation.NavigateTo("/assignments");
     }
 
     private void ViewProgress()
     {
-        // Navigate to progress view - in a real app this would navigate to a progress page
-        // For now, we'll show a simple alert with progress summary
-        var totalSessions = recentSessions.Count;
-        var totalHours = totalTeachingHours;
-        var avgSessionLength = totalSessions > 0 ? totalHours * 60.0 / totalSessions : 0;
-        
-        // In a real implementation, this would navigate to a detailed progress page
-        // For now, we'll just update the UI to show progress focus
-        StateHasChanged();
+        showProgressModal = true;
+    }
+
+    private void CloseProgressModal()
+    {
+        showProgressModal = false;
     }
 
     private void GenerateReport()
     {
-        // Generate teaching report - in a real app this would create a PDF or detailed report
-        // For now, we'll create a simple text report
-        var report = $"Teaching Report - {DateTime.Now:MM/dd/yyyy}\n\n";
-        report += $"Total Teaching Hours: {totalTeachingHours}\n";
-        report += $"Completed Assignments Today: {completedAssignments}\n";
-        report += $"Recent Sessions: {recentSessions.Count}\n\n";
-        
-        if (recentSessions.Any())
-        {
-            report += "Recent Teaching Sessions:\n";
-            foreach (var session in recentSessions.Take(5))
-            {
-                report += $"- {session.Student}: {session.Subject} ({session.Duration}) on {session.Date:MM/dd}\n";
-            }
-        }
-        
-        // In a real implementation, this would save or display the report
-        // For now, we'll just update the UI to show report generation
+        showReportModal = true;
+    }
+
+    private void CloseReportModal()
+    {
+        showReportModal = false;
+    }
+
+    private void SaveReport()
+    {
+        // In a real implementation, this would save the report to a database
+        showReportModal = false;
         StateHasChanged();
+    }
+
+    private void DownloadReport()
+    {
+        // In a real implementation, this would generate and download a PDF report
+        showReportModal = false;
+        StateHasChanged();
+    }
+
+    private void ExportProgressReport()
+    {
+        // In a real implementation, this would export progress data
+        showProgressModal = false;
+        StateHasChanged();
+    }
+
+    // Helper methods for progress calculations
+    private double GetAverageSessionLength()
+    {
+        if (!recentSessions.Any()) return 0;
+        
+        var totalMinutes = recentSessions.Sum(s => 
+        {
+            var parts = s.Duration.Split(' ');
+            return int.TryParse(parts[0], out var minutes) ? minutes : 0;
+        });
+        
+        return Math.Round((double)totalMinutes / recentSessions.Count, 1);
+    }
+
+    private int GetSubjectCount(string subject)
+    {
+        return recentSessions.Count(s => s.Subject == subject);
+    }
+
+    private double GetSubjectPercentage(string subject)
+    {
+        if (!recentSessions.Any()) return 0;
+        return Math.Round((double)GetSubjectCount(subject) / recentSessions.Count * 100, 1);
+    }
+
+    private int GetUniqueStudentCount()
+    {
+        return recentSessions.Select(s => s.Student).Distinct().Count();
+    }
+
+    private IEnumerable<KeyValuePair<string, int>> GetTopSubjects()
+    {
+        return recentSessions
+            .GroupBy(s => s.Subject)
+            .Select(g => new KeyValuePair<string, int>(g.Key, g.Count()))
+            .OrderByDescending(x => x.Value)
+            .Take(5);
     }
 
     public class TeachingSession

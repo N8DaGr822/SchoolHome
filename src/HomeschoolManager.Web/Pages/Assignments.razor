@@ -196,6 +196,146 @@
     <div class="modal-backdrop fade show"></div>
 }
 
+<!-- View Assignment Modal -->
+@if (showViewModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Assignment Details</h5>
+                    <button type="button" class="btn-close" @onclick="CloseViewAssignmentModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Title:</strong> @viewingAssignment.Title</p>
+                    <p><strong>Description:</strong> @viewingAssignment.Description</p>
+                    <p><strong>Student:</strong> @viewingAssignment.StudentName</p>
+                    <p><strong>Subject:</strong> @viewingAssignment.Subject</p>
+                    <p><strong>Due Date:</strong> @viewingAssignment.DueDate.ToString("MM/dd/yyyy")</p>
+                    <p><strong>Status:</strong> <span class="badge bg-@GetStatusColor(viewingAssignment.Status)">@viewingAssignment.Status</span></p>
+                    <p><strong>Grade:</strong> @viewingAssignment.Grade</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseViewAssignmentModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<!-- Edit Assignment Modal -->
+@if (showEditModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Assignment</h5>
+                    <button type="button" class="btn-close" @onclick="CloseEditAssignmentModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Assignment Title</label>
+                        <input type="text" class="form-control" @bind="editingAssignment.Title" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" rows="3" @bind="editingAssignment.Description"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Student</label>
+                                <select class="form-select" @bind="editingAssignment.StudentName">
+                                    <option value="">Select Student</option>
+                                    @foreach (var student in availableStudents)
+                                    {
+                                        <option value="@student">@student</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Subject</label>
+                                <select class="form-select" @bind="editingAssignment.Subject">
+                                    <option value="">Select Subject</option>
+                                    @foreach (var subject in availableSubjects)
+                                    {
+                                        <option value="@subject">@subject</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Due Date</label>
+                                <input type="date" class="form-control" @bind="editingAssignment.DueDate" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Status</label>
+                                <select class="form-select" @bind="editingAssignment.Status">
+                                    <option value="Assigned">Assigned</option>
+                                    <option value="InProgress">In Progress</option>
+                                    <option value="Completed">Completed</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseEditAssignmentModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveAssignment">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<!-- Grade Assignment Modal -->
+@if (showGradeModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Grade Assignment</h5>
+                    <button type="button" class="btn-close" @onclick="CloseGradeAssignmentModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Assignment:</strong> @gradingAssignment.Title</p>
+                    <p><strong>Student:</strong> @gradingAssignment.StudentName</p>
+                    <p><strong>Current Grade:</strong> @gradingAssignment.Grade</p>
+                    <div class="mb-3">
+                        <label class="form-label">New Grade</label>
+                        <select class="form-select" @bind="gradingAssignment.Grade">
+                            <option value="A">A</option>
+                            <option value="A+">A+</option>
+                            <option value="B">B</option>
+                            <option value="B+">B+</option>
+                            <option value="C">C</option>
+                            <option value="C+">C+</option>
+                            <option value="D">D</option>
+                            <option value="F">F</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseGradeAssignmentModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveGrade">Save Grade</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
 @code {
     private List<Assignment> assignments = new();
     private string searchTerm = "";
@@ -203,6 +343,13 @@
     private string selectedSubject = "";
     private bool showAddModal = false;
     private Assignment newAssignment = new();
+
+    private Assignment? viewingAssignment;
+    private bool showViewModal = false;
+    private Assignment? editingAssignment;
+    private bool showEditModal = false;
+    private Assignment? gradingAssignment;
+    private bool showGradeModal = false;
 
     private List<string> availableStudents = new() { "Emma", "Liam", "Sophia", "Noah", "Olivia" };
     private List<string> availableSubjects = new() { "Math", "Science", "Language Arts", "History", "Geography", "Art", "Music", "Physical Education" };
@@ -287,23 +434,85 @@
 
     private void ViewAssignment(Assignment assignment)
     {
-        // Implementation for viewing assignment details
-        // In a real implementation, this would open a modal with detailed view
-        StateHasChanged();
+        // Set the assignment to view and show the modal
+        viewingAssignment = assignment;
+        showViewModal = true;
+    }
+
+    private void CloseViewAssignmentModal()
+    {
+        showViewModal = false;
+        viewingAssignment = null;
     }
 
     private void EditAssignment(Assignment assignment)
     {
-        // Implementation for editing assignment
-        // In a real implementation, this would open a modal with the assignment's current data
-        StateHasChanged();
+        // Create a copy of the assignment for editing
+        editingAssignment = new Assignment
+        {
+            Id = assignment.Id,
+            Title = assignment.Title,
+            Description = assignment.Description,
+            StudentName = assignment.StudentName,
+            Subject = assignment.Subject,
+            DueDate = assignment.DueDate,
+            Status = assignment.Status,
+            Grade = assignment.Grade
+        };
+        showEditModal = true;
+    }
+
+    private void CloseEditAssignmentModal()
+    {
+        showEditModal = false;
+        editingAssignment = null;
+    }
+
+    private void SaveAssignment()
+    {
+        if (editingAssignment != null && !string.IsNullOrEmpty(editingAssignment.Title))
+        {
+            // Find and update the assignment in the list
+            var existingAssignment = assignments.FirstOrDefault(a => a.Id == editingAssignment.Id);
+            if (existingAssignment != null)
+            {
+                existingAssignment.Title = editingAssignment.Title;
+                existingAssignment.Description = editingAssignment.Description;
+                existingAssignment.StudentName = editingAssignment.StudentName;
+                existingAssignment.Subject = editingAssignment.Subject;
+                existingAssignment.DueDate = editingAssignment.DueDate;
+                existingAssignment.Status = editingAssignment.Status;
+            }
+            CloseEditAssignmentModal();
+        }
     }
 
     private void GradeAssignment(Assignment assignment)
     {
-        // Implementation for grading assignment
-        // In a real implementation, this would open a grading modal
-        StateHasChanged();
+        // Set the assignment to grade and show the modal
+        gradingAssignment = assignment;
+        showGradeModal = true;
+    }
+
+    private void CloseGradeAssignmentModal()
+    {
+        showGradeModal = false;
+        gradingAssignment = null;
+    }
+
+    private void SaveGrade()
+    {
+        if (gradingAssignment != null && !string.IsNullOrEmpty(gradingAssignment.Grade))
+        {
+            // Find and update the assignment in the list
+            var existingAssignment = assignments.FirstOrDefault(a => a.Id == gradingAssignment.Id);
+            if (existingAssignment != null)
+            {
+                existingAssignment.Grade = gradingAssignment.Grade;
+                existingAssignment.Status = AssignmentStatus.Completed;
+            }
+            CloseGradeAssignmentModal();
+        }
     }
 
     private void DeleteAssignment(Assignment assignment)

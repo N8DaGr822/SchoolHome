@@ -1,5 +1,7 @@
 @page "/resources"
 @using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@inject NavigationManager Navigation
 
 <PageTitle>Resources - Homeschool Manager</PageTitle>
 
@@ -15,28 +17,28 @@
                 </div>
                 <div class="card-body">
                     <div class="list-group">
-                        <a href="#" class="list-group-item list-group-item-action">
+                        <a href="#" class="list-group-item list-group-item-action" @onclick="() => OpenResource('Math Curriculum')">
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">Math Curriculum</h6>
                                 <small class="text-muted">K-8</small>
                             </div>
                             <p class="mb-1">Comprehensive math curriculum with worksheets and activities</p>
                         </a>
-                        <a href="#" class="list-group-item list-group-item-action">
+                        <a href="#" class="list-group-item list-group-item-action" @onclick="() => OpenResource('Science Experiments')">
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">Science Experiments</h6>
                                 <small class="text-muted">All Ages</small>
                             </div>
                             <p class="mb-1">Hands-on science experiments and lab guides</p>
                         </a>
-                        <a href="#" class="list-group-item list-group-item-action">
+                        <a href="#" class="list-group-item list-group-item-action" @onclick="() => OpenResource('Language Arts')">
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">Language Arts</h6>
                                 <small class="text-muted">K-12</small>
                             </div>
                             <p class="mb-1">Reading lists, writing prompts, and grammar exercises</p>
                         </a>
-                        <a href="#" class="list-group-item list-group-item-action">
+                        <a href="#" class="list-group-item list-group-item-action" @onclick="() => OpenResource('History Timeline')">
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">History Timeline</h6>
                                 <small class="text-muted">3-8</small>
@@ -180,62 +182,419 @@
             </div>
         </div>
     </div>
-</div> 
+</div>
+
+<!-- Grade Calculator Modal -->
+@if (showGradeCalculatorModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Grade Calculator</h5>
+                    <button type="button" class="btn-close" @onclick="CloseGradeCalculatorModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Add Grades</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Assignment Name</label>
+                                <input type="text" class="form-control" @bind="newGrade.AssignmentName" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Grade</label>
+                                <select class="form-select" @bind="newGrade.GradeValue">
+                                    <option value="A+">A+ (4.0)</option>
+                                    <option value="A">A (4.0)</option>
+                                    <option value="A-">A- (3.7)</option>
+                                    <option value="B+">B+ (3.3)</option>
+                                    <option value="B">B (3.0)</option>
+                                    <option value="B-">B- (2.7)</option>
+                                    <option value="C+">C+ (2.3)</option>
+                                    <option value="C">C (2.0)</option>
+                                    <option value="C-">C- (1.7)</option>
+                                    <option value="D+">D+ (1.3)</option>
+                                    <option value="D">D (1.0)</option>
+                                    <option value="F">F (0.0)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Weight (%)</label>
+                                <input type="number" class="form-control" @bind="newGrade.Weight" min="1" max="100" />
+                            </div>
+                            <button class="btn btn-primary" @onclick="AddGrade">Add Grade</button>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Grade Summary</h6>
+                            @if (grades.Any())
+                            {
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Assignment</th>
+                                                <th>Grade</th>
+                                                <th>Weight</th>
+                                                <th>Points</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var grade in grades)
+                                            {
+                                                <tr>
+                                                    <td>@grade.AssignmentName</td>
+                                                    <td>@grade.GradeValue</td>
+                                                    <td>@grade.Weight%</td>
+                                                    <td>@grade.Points.ToString("F2")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="alert alert-info">
+                                    <strong>GPA:</strong> @CalculateGPA().ToString("F2")<br />
+                                    <strong>Letter Grade:</strong> @GetLetterGrade(CalculateGPA())
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted">No grades added yet.</p>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseGradeCalculatorModal">Close</button>
+                    <button type="button" class="btn btn-success" @onclick="ExportGrades">Export Results</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<!-- Lesson Timer Modal -->
+@if (showLessonTimerModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Lesson Timer</h5>
+                    <button type="button" class="btn-close" @onclick="CloseLessonTimerModal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="mb-3">
+                        <h2 class="display-4">@timerDisplay</h2>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Lesson Subject</label>
+                        <input type="text" class="form-control" @bind="lessonSubject" placeholder="e.g., Math, Science" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Student</label>
+                        <input type="text" class="form-control" @bind="lessonStudent" placeholder="Student name" />
+                    </div>
+                    <div class="btn-group" role="group">
+                        @if (!isTimerRunning)
+                        {
+                            <button class="btn btn-success" @onclick="StartTimer">Start</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-warning" @onclick="PauseTimer">Pause</button>
+                            <button class="btn btn-danger" @onclick="StopTimer">Stop</button>
+                        }
+                        <button class="btn btn-secondary" @onclick="ResetTimer">Reset</button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseLessonTimerModal">Close</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveLessonSession">Save Session</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<!-- Add Resource Modal -->
+@if (showAddResourceModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Resource</h5>
+                    <button type="button" class="btn-close" @onclick="CloseAddResourceModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Resource Name</label>
+                        <input type="text" class="form-control" @bind="newResource.Name" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" rows="3" @bind="newResource.Description"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <select class="form-select" @bind="newResource.Category">
+                            <option value="">Select Category</option>
+                            <option value="Curriculum">Curriculum</option>
+                            <option value="Worksheet">Worksheet</option>
+                            <option value="Video">Video</option>
+                            <option value="Game">Game</option>
+                            <option value="Book">Book</option>
+                            <option value="Tool">Tool</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">URL (Optional)</label>
+                        <input type="url" class="form-control" @bind="newResource.Url" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Grade Level</label>
+                        <select class="form-select" @bind="newResource.GradeLevel">
+                            <option value="">All Grades</option>
+                            <option value="K-2">K-2</option>
+                            <option value="3-5">3-5</option>
+                            <option value="6-8">6-8</option>
+                            <option value="9-12">9-12</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseAddResourceModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveResource">Add Resource</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
 
 @code {
+    // Modal states
+    private bool showGradeCalculatorModal = false;
+    private bool showLessonTimerModal = false;
+    private bool showAddResourceModal = false;
+
+    // Grade Calculator
+    private List<GradeEntry> grades = new();
+    private GradeEntry newGrade = new();
+
+    // Lesson Timer
+    private bool isTimerRunning = false;
+    private DateTime timerStart;
+    private TimeSpan elapsedTime = TimeSpan.Zero;
+    private string lessonSubject = "";
+    private string lessonStudent = "";
+    private string timerDisplay = "00:00:00";
+
+    // Resource Management
+    private Resource newResource = new();
+
     private void OpenGradeCalculator()
     {
-        // Implementation for opening grade calculator
-        // In a real implementation, this would open a modal or navigate to a grade calculator page
-        StateHasChanged();
+        showGradeCalculatorModal = true;
+    }
+
+    private void CloseGradeCalculatorModal()
+    {
+        showGradeCalculatorModal = false;
+        grades.Clear();
+        newGrade = new GradeEntry();
+    }
+
+    private void AddGrade()
+    {
+        if (!string.IsNullOrEmpty(newGrade.AssignmentName) && newGrade.Weight > 0)
+        {
+            grades.Add(newGrade);
+            newGrade = new GradeEntry();
+        }
+    }
+
+    private double CalculateGPA()
+    {
+        if (!grades.Any()) return 0.0;
+
+        var totalPoints = grades.Sum(g => g.Points);
+        var totalWeight = grades.Sum(g => g.Weight);
+        
+        return totalWeight > 0 ? totalPoints / totalWeight : 0.0;
+    }
+
+    private string GetLetterGrade(double gpa)
+    {
+        return gpa switch
+        {
+            >= 3.7 => "A",
+            >= 3.3 => "A-",
+            >= 3.0 => "B+",
+            >= 2.7 => "B",
+            >= 2.3 => "B-",
+            >= 2.0 => "C+",
+            >= 1.7 => "C",
+            >= 1.3 => "C-",
+            >= 1.0 => "D+",
+            >= 0.7 => "D",
+            _ => "F"
+        };
+    }
+
+    private void ExportGrades()
+    {
+        // In a real implementation, this would export the grades to a file
+        showGradeCalculatorModal = false;
     }
 
     private void StartLessonTimer()
     {
-        // Implementation for starting lesson timer
-        // In a real implementation, this would start a timer and track teaching time
-        StateHasChanged();
+        showLessonTimerModal = true;
+    }
+
+    private void CloseLessonTimerModal()
+    {
+        showLessonTimerModal = false;
+        StopTimer();
+    }
+
+    private void StartTimer()
+    {
+        if (!isTimerRunning)
+        {
+            isTimerRunning = true;
+            timerStart = DateTime.Now - elapsedTime;
+            // In a real implementation, you would use a timer to update the display
+        }
+    }
+
+    private void PauseTimer()
+    {
+        if (isTimerRunning)
+        {
+            isTimerRunning = false;
+            elapsedTime = DateTime.Now - timerStart;
+        }
+    }
+
+    private void StopTimer()
+    {
+        isTimerRunning = false;
+        elapsedTime = TimeSpan.Zero;
+        timerDisplay = "00:00:00";
+    }
+
+    private void ResetTimer()
+    {
+        StopTimer();
+        lessonSubject = "";
+        lessonStudent = "";
+    }
+
+    private void SaveLessonSession()
+    {
+        // In a real implementation, this would save the lesson session to the database
+        showLessonTimerModal = false;
+        StopTimer();
     }
 
     private void ViewProgressTracker()
     {
-        // Implementation for viewing progress tracker
-        // In a real implementation, this would navigate to a progress tracking page
-        StateHasChanged();
+        // Navigate to the teaching page for progress tracking
+        Navigation.NavigateTo("/teach");
     }
 
     private void GenerateReport()
     {
-        // Implementation for generating report
-        // In a real implementation, this would create a progress report
-        StateHasChanged();
+        // Navigate to the teaching page for report generation
+        Navigation.NavigateTo("/teach");
     }
 
     private void AddNewResource()
     {
-        // Implementation for adding new resource
-        // In a real implementation, this would open a modal to add a new resource
-        StateHasChanged();
+        showAddResourceModal = true;
+    }
+
+    private void CloseAddResourceModal()
+    {
+        showAddResourceModal = false;
+        newResource = new Resource();
+    }
+
+    private void SaveResource()
+    {
+        if (!string.IsNullOrEmpty(newResource.Name))
+        {
+            // In a real implementation, this would save the resource to the database
+            showAddResourceModal = false;
+        }
     }
 
     private void UploadFile()
     {
-        // Implementation for uploading file
         // In a real implementation, this would open a file upload dialog
-        StateHasChanged();
+        // For now, we'll just show a message
+        showAddResourceModal = true;
     }
 
     private void SearchResources()
     {
-        // Implementation for searching resources
         // In a real implementation, this would open a search interface
-        StateHasChanged();
+        // For now, we'll just show the add resource modal
+        showAddResourceModal = true;
     }
 
     private void ShareResource()
     {
-        // Implementation for sharing resource
         // In a real implementation, this would open a sharing dialog
-        StateHasChanged();
+        // For now, we'll just show a message
+    }
+
+    private void OpenResource(string resourceName)
+    {
+        // In a real implementation, this would open the specific resource
+        // For now, we'll just show a message
+    }
+
+    // Helper classes
+    public class GradeEntry
+    {
+        public string AssignmentName { get; set; } = "";
+        public string GradeValue { get; set; } = "A";
+        public int Weight { get; set; } = 10;
+        public double Points => GetGradePoints() * Weight / 100.0;
+
+        private double GetGradePoints()
+        {
+            return GradeValue switch
+            {
+                "A+" => 4.0,
+                "A" => 4.0,
+                "A-" => 3.7,
+                "B+" => 3.3,
+                "B" => 3.0,
+                "B-" => 2.7,
+                "C+" => 2.3,
+                "C" => 2.0,
+                "C-" => 1.7,
+                "D+" => 1.3,
+                "D" => 1.0,
+                "F" => 0.0,
+                _ => 0.0
+            };
+        }
+    }
+
+    public class Resource
+    {
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string Category { get; set; } = "";
+        public string Url { get; set; } = "";
+        public string GradeLevel { get; set; } = "";
     }
 } 
