@@ -62,7 +62,7 @@
                                     <span class="oi oi-calculator" style="font-size: 2rem; color: #007bff;"></span>
                                     <h6 class="mt-2">Grade Calculator</h6>
                                     <p class="small text-muted">Calculate grades and GPA</p>
-                                    <button class="btn btn-sm btn-outline-primary">Open</button>
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="OpenGradeCalculator">Open</button>
                                 </div>
                             </div>
                         </div>
@@ -72,7 +72,7 @@
                                     <span class="oi oi-clock" style="font-size: 2rem; color: #28a745;"></span>
                                     <h6 class="mt-2">Lesson Timer</h6>
                                     <p class="small text-muted">Track teaching time</p>
-                                    <button class="btn btn-sm btn-outline-success">Start</button>
+                                    <button class="btn btn-sm btn-outline-success" @onclick="StartLessonTimer">Start</button>
                                 </div>
                             </div>
                         </div>
@@ -82,7 +82,7 @@
                                     <span class="oi oi-chart" style="font-size: 2rem; color: #17a2b8;"></span>
                                     <h6 class="mt-2">Progress Tracker</h6>
                                     <p class="small text-muted">Monitor student progress</p>
-                                    <button class="btn btn-sm btn-outline-info">View</button>
+                                    <button class="btn btn-sm btn-outline-info" @onclick="ViewProgressTracker">View</button>
                                 </div>
                             </div>
                         </div>
@@ -92,7 +92,7 @@
                                     <span class="oi oi-document" style="font-size: 2rem; color: #ffc107;"></span>
                                     <h6 class="mt-2">Report Generator</h6>
                                     <p class="small text-muted">Create progress reports</p>
-                                    <button class="btn btn-sm btn-outline-warning">Generate</button>
+                                    <button class="btn btn-sm btn-outline-warning" @onclick="GenerateReport">Generate</button>
                                 </div>
                             </div>
                         </div>
@@ -163,16 +163,16 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <button class="btn btn-primary">
+                        <button class="btn btn-primary" @onclick="AddNewResource">
                             <span class="oi oi-plus"></span> Add New Resource
                         </button>
-                        <button class="btn btn-outline-secondary">
+                        <button class="btn btn-outline-secondary" @onclick="UploadFile">
                             <span class="oi oi-upload"></span> Upload File
                         </button>
-                        <button class="btn btn-outline-info">
+                        <button class="btn btn-outline-info" @onclick="SearchResources">
                             <span class="oi oi-search"></span> Search Resources
                         </button>
-                        <button class="btn btn-outline-success">
+                        <button class="btn btn-outline-success" @onclick="ShareResource">
                             <span class="oi oi-share"></span> Share Resource
                         </button>
                     </div>
@@ -181,3 +181,61 @@
         </div>
     </div>
 </div> 
+
+@code {
+    private void OpenGradeCalculator()
+    {
+        // Implementation for opening grade calculator
+        // In a real implementation, this would open a modal or navigate to a grade calculator page
+        StateHasChanged();
+    }
+
+    private void StartLessonTimer()
+    {
+        // Implementation for starting lesson timer
+        // In a real implementation, this would start a timer and track teaching time
+        StateHasChanged();
+    }
+
+    private void ViewProgressTracker()
+    {
+        // Implementation for viewing progress tracker
+        // In a real implementation, this would navigate to a progress tracking page
+        StateHasChanged();
+    }
+
+    private void GenerateReport()
+    {
+        // Implementation for generating report
+        // In a real implementation, this would create a progress report
+        StateHasChanged();
+    }
+
+    private void AddNewResource()
+    {
+        // Implementation for adding new resource
+        // In a real implementation, this would open a modal to add a new resource
+        StateHasChanged();
+    }
+
+    private void UploadFile()
+    {
+        // Implementation for uploading file
+        // In a real implementation, this would open a file upload dialog
+        StateHasChanged();
+    }
+
+    private void SearchResources()
+    {
+        // Implementation for searching resources
+        // In a real implementation, this would open a search interface
+        StateHasChanged();
+    }
+
+    private void ShareResource()
+    {
+        // Implementation for sharing resource
+        // In a real implementation, this would open a sharing dialog
+        StateHasChanged();
+    }
+} 

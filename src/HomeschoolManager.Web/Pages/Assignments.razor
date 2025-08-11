@@ -1,20 +1,336 @@
 @page "/assignments"
 @using Microsoft.AspNetCore.Components
+@using HomeschoolManager.Core.Entities
 
 <PageTitle>Assignments - Homeschool Manager</PageTitle>
 
 <div class="container-fluid">
-    <h1>Assignments</h1>
+    <h1>Assignment Management</h1>
     
+    <!-- Search and Filter Controls -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="input-group">
+                <span class="input-group-text">
+                    <span class="oi oi-magnifying-glass"></span>
+                </span>
+                <input type="text" class="form-control" placeholder="Search assignments..." @bind="searchTerm" @bind:event="oninput" />
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="d-flex gap-2">
+                <select class="form-select" @bind="selectedStatus">
+                    <option value="">All Statuses</option>
+                    <option value="Assigned">Assigned</option>
+                    <option value="InProgress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Overdue">Overdue</option>
+                </select>
+                <select class="form-select" @bind="selectedSubject">
+                    <option value="">All Subjects</option>
+                    @foreach (var subject in availableSubjects)
+                    {
+                        <option value="@subject">@subject</option>
+                    }
+                </select>
+                <button class="btn btn-primary" @onclick="ShowAddAssignmentModal">
+                    <span class="oi oi-plus"></span> Add Assignment
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assignment List -->
     <div class="row">
         <div class="col-12">
             <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Assignments (@filteredAssignments.Count())</h5>
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title">Assignment Management</h5>
-                    <p class="card-text">This page will allow you to track homework and projects.</p>
-                    <p class="text-muted">Feature coming soon...</p>
+                    @if (filteredAssignments.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Student</th>
+                                        <th>Title</th>
+                                        <th>Subject</th>
+                                        <th>Due Date</th>
+                                        <th>Status</th>
+                                        <th>Grade</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var assignment in filteredAssignments)
+                                    {
+                                        <tr>
+                                            <td>@assignment.Student</td>
+                                            <td>@assignment.Title</td>
+                                            <td>@assignment.Subject</td>
+                                            <td>@assignment.DueDate.ToString("MM/dd/yyyy")</td>
+                                            <td>
+                                                <span class="badge bg-@GetStatusColor(assignment.Status)">@assignment.Status</span>
+                                            </td>
+                                            <td>
+                                                @if (!string.IsNullOrEmpty(assignment.Grade))
+                                                {
+                                                    <span class="badge bg-@GetGradeColor(assignment.Grade)">@assignment.Grade</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">-</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm" role="group">
+                                                    <button class="btn btn-outline-primary" @onclick="() => ViewAssignment(assignment)">
+                                                        <span class="oi oi-eye"></span>
+                                                    </button>
+                                                    <button class="btn btn-outline-warning" @onclick="() => EditAssignment(assignment)">
+                                                        <span class="oi oi-pencil"></span>
+                                                    </button>
+                                                    <button class="btn btn-outline-success" @onclick="() => GradeAssignment(assignment)">
+                                                        <span class="oi oi-check"></span>
+                                                    </button>
+                                                    <button class="btn btn-outline-danger" @onclick="() => DeleteAssignment(assignment)">
+                                                        <span class="oi oi-trash"></span>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-4">
+                            <h5 class="text-muted">No assignments found</h5>
+                            <p class="text-muted">Create your first assignment to get started.</p>
+                            <button class="btn btn-primary" @onclick="ShowAddAssignmentModal">
+                                <span class="oi oi-plus"></span> Add Assignment
+                            </button>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
     </div>
-</div> 
+</div>
+
+<!-- Add Assignment Modal -->
+@if (showAddModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Assignment</h5>
+                    <button type="button" class="btn-close" @onclick="CloseAddAssignmentModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Assignment Title</label>
+                        <input type="text" class="form-control" @bind="newAssignment.Title" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" rows="3" @bind="newAssignment.Description"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Student</label>
+                                <select class="form-select" @bind="newAssignment.Student">
+                                    <option value="">Select Student</option>
+                                    @foreach (var student in availableStudents)
+                                    {
+                                        <option value="@student">@student</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Subject</label>
+                                <select class="form-select" @bind="newAssignment.Subject">
+                                    <option value="">Select Subject</option>
+                                    @foreach (var subject in availableSubjects)
+                                    {
+                                        <option value="@subject">@subject</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Due Date</label>
+                                <input type="date" class="form-control" @bind="newAssignment.DueDate" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Status</label>
+                                <select class="form-select" @bind="newAssignment.Status">
+                                    <option value="Assigned">Assigned</option>
+                                    <option value="InProgress">In Progress</option>
+                                    <option value="Completed">Completed</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseAddAssignmentModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="AddAssignment">Add Assignment</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private List<Assignment> assignments = new();
+    private string searchTerm = "";
+    private string selectedStatus = "";
+    private string selectedSubject = "";
+    private bool showAddModal = false;
+    private Assignment newAssignment = new();
+
+    private List<string> availableStudents = new() { "Emma", "Liam", "Sophia", "Noah", "Olivia" };
+    private List<string> availableSubjects = new() { "Math", "Science", "Language Arts", "History", "Geography", "Art", "Music", "Physical Education" };
+
+    protected override void OnInitialized()
+    {
+        // Initialize with sample data
+        assignments = new List<Assignment>
+        {
+            new() { 
+                Id = 1, 
+                Title = "Math Worksheet - Fractions", 
+                Description = "Complete the fraction problems on pages 45-47", 
+                Student = "Emma", 
+                Subject = "Math", 
+                DueDate = DateTime.Now.AddDays(-1), 
+                Status = AssignmentStatus.Completed, 
+                Grade = "A" 
+            },
+            new() { 
+                Id = 2, 
+                Title = "Science Experiment Report", 
+                Description = "Write a report about the plant growth experiment", 
+                Student = "Liam", 
+                Subject = "Science", 
+                DueDate = DateTime.Now, 
+                Status = AssignmentStatus.InProgress, 
+                Grade = "" 
+            },
+            new() { 
+                Id = 3, 
+                Title = "Book Report - Charlotte's Web", 
+                Description = "Write a book report about Charlotte's Web", 
+                Student = "Sophia", 
+                Subject = "Language Arts", 
+                DueDate = DateTime.Now.AddDays(1), 
+                Status = AssignmentStatus.Assigned, 
+                Grade = "" 
+            },
+            new() { 
+                Id = 4, 
+                Title = "History Timeline Project", 
+                Description = "Create a timeline of major events in American history", 
+                Student = "Noah", 
+                Subject = "History", 
+                DueDate = DateTime.Now.AddDays(2), 
+                Status = AssignmentStatus.Assigned, 
+                Grade = "" 
+            }
+        };
+    }
+
+    private IEnumerable<Assignment> filteredAssignments => assignments
+        .Where(a => string.IsNullOrEmpty(searchTerm) || 
+                   a.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                   a.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                   a.Student.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+        .Where(a => string.IsNullOrEmpty(selectedStatus) || a.Status.ToString() == selectedStatus)
+        .Where(a => string.IsNullOrEmpty(selectedSubject) || a.Subject == selectedSubject)
+        .OrderBy(a => a.DueDate);
+
+    private void ShowAddAssignmentModal()
+    {
+        newAssignment = new Assignment { DueDate = DateTime.Today.AddDays(7) };
+        showAddModal = true;
+    }
+
+    private void CloseAddAssignmentModal()
+    {
+        showAddModal = false;
+    }
+
+    private void AddAssignment()
+    {
+        if (!string.IsNullOrEmpty(newAssignment.Title) && !string.IsNullOrEmpty(newAssignment.Student))
+        {
+            newAssignment.Id = assignments.Max(a => a.Id) + 1;
+            assignments.Add(newAssignment);
+            CloseAddAssignmentModal();
+        }
+    }
+
+    private void ViewAssignment(Assignment assignment)
+    {
+        // Implementation for viewing assignment details
+        // In a real implementation, this would open a modal with detailed view
+        StateHasChanged();
+    }
+
+    private void EditAssignment(Assignment assignment)
+    {
+        // Implementation for editing assignment
+        // In a real implementation, this would open a modal with the assignment's current data
+        StateHasChanged();
+    }
+
+    private void GradeAssignment(Assignment assignment)
+    {
+        // Implementation for grading assignment
+        // In a real implementation, this would open a grading modal
+        StateHasChanged();
+    }
+
+    private void DeleteAssignment(Assignment assignment)
+    {
+        assignments.Remove(assignment);
+    }
+
+    private string GetStatusColor(AssignmentStatus status)
+    {
+        return status switch
+        {
+            AssignmentStatus.Completed => "success",
+            AssignmentStatus.InProgress => "warning",
+            AssignmentStatus.Assigned => "secondary",
+            AssignmentStatus.Overdue => "danger",
+            _ => "secondary"
+        };
+    }
+
+    private string GetGradeColor(string grade)
+    {
+        return grade switch
+        {
+            "A" or "A+" => "success",
+            "B" or "B+" => "info",
+            "C" or "C+" => "warning",
+            _ => "danger"
+        };
+    }
+} 

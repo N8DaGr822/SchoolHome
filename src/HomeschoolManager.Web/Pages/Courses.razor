@@ -504,6 +504,10 @@
     private void ShowEditCourseModal(Course course)
     {
         // Implementation for editing course
+        // In a real implementation, this would open a modal with the course's current data
+        // For now, we'll just update the UI to show edit mode
+        selectedCourse = course;
+        StateHasChanged();
     }
 
     private void DeleteCourse(Course course)
@@ -544,11 +548,17 @@
     private void ViewLessonPlan(LessonPlan lessonPlan)
     {
         // Implementation for viewing lesson plan details
+        // In a real implementation, this would open a modal or navigate to a detailed view
+        // For now, we'll just update the UI to show the lesson plan details
+        StateHasChanged();
     }
 
     private void EditLessonPlan(LessonPlan lessonPlan)
     {
         // Implementation for editing lesson plan
+        // In a real implementation, this would open a modal with the lesson plan's current data
+        // For now, we'll just update the UI to show edit mode
+        StateHasChanged();
     }
 
     private void DeleteLessonPlan(LessonPlan lessonPlan)

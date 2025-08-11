@@ -406,6 +406,10 @@
     private void ShowEditStudentModal(Student student)
     {
         // Implementation for editing student
+        // In a real implementation, this would open a modal with the student's current data
+        // For now, we'll just update the UI to show edit mode
+        selectedStudent = student;
+        StateHasChanged();
     }
 
     private void DeleteStudent(Student student)
