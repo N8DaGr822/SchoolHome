@@ -17,28 +17,28 @@
                 </div>
                 <div class="card-body">
                     <div class="list-group">
-                        <a href="#" class="list-group-item list-group-item-action" @onclick="() => OpenResource('Math Curriculum')">
+                        <a href="https://www.education.com/resources/lesson-plans/math/" class="list-group-item list-group-item-action" @onclick="OpenMathCurriculum">
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">Math Curriculum</h6>
-                                <small class="text-muted">K-8</small>
+                                <small class="text-muted">All Ages</small>
                             </div>
                             <p class="mb-1">Comprehensive math curriculum with worksheets and activities</p>
                         </a>
-                        <a href="#" class="list-group-item list-group-item-action" @onclick="() => OpenResource('Science Experiments')">
+                        <a href="https://www.education.com/resources/activities/science/" class="list-group-item list-group-item-action" @onclick="OpenScienceExperiments">
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">Science Experiments</h6>
                                 <small class="text-muted">All Ages</small>
                             </div>
                             <p class="mb-1">Hands-on science experiments and lab guides</p>
                         </a>
-                        <a href="#" class="list-group-item list-group-item-action" @onclick="() => OpenResource('Language Arts')">
+                        <a href="https://www.education.com/resources/english-language-arts/" class="list-group-item list-group-item-action" @onclick="OpenLanguageArts">
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">Language Arts</h6>
                                 <small class="text-muted">K-12</small>
                             </div>
                             <p class="mb-1">Reading lists, writing prompts, and grammar exercises</p>
                         </a>
-                        <a href="#" class="list-group-item list-group-item-action" @onclick="() => OpenResource('History Timeline')">
+                        <a href="https://www.education.com/resources/lesson-plans/social-studies/history/" class="list-group-item list-group-item-action" @onclick="OpenHistoryTimeline">
                             <div class="d-flex w-100 justify-content-between">
                                 <h6 class="mb-1">History Timeline</h6>
                                 <small class="text-muted">3-8</small>
@@ -50,54 +50,22 @@
             </div>
         </div>
 
-        <!-- Teaching Tools -->
+        <!-- Local Events Section (Future Development) -->
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">Teaching Tools</h5>
+                    <h5 class="mb-0">Local Events (Coming Soon)</h5>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <div class="card border-primary">
-                                <div class="card-body text-center">
-                                    <span class="oi oi-calculator" style="font-size: 2rem; color: #007bff;"></span>
-                                    <h6 class="mt-2">Grade Calculator</h6>
-                                    <p class="small text-muted">Calculate grades and GPA</p>
-                                    <button class="btn btn-sm btn-outline-primary" @onclick="OpenGradeCalculator">Open</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <div class="card border-success">
-                                <div class="card-body text-center">
-                                    <span class="oi oi-clock" style="font-size: 2rem; color: #28a745;"></span>
-                                    <h6 class="mt-2">Lesson Timer</h6>
-                                    <p class="small text-muted">Track teaching time</p>
-                                    <button class="btn btn-sm btn-outline-success" @onclick="StartLessonTimer">Start</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <div class="card border-info">
-                                <div class="card-body text-center">
-                                    <span class="oi oi-chart" style="font-size: 2rem; color: #17a2b8;"></span>
-                                    <h6 class="mt-2">Progress Tracker</h6>
-                                    <p class="small text-muted">Monitor student progress</p>
-                                    <button class="btn btn-sm btn-outline-info" @onclick="ViewProgressTracker">View</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <div class="card border-warning">
-                                <div class="card-body text-center">
-                                    <span class="oi oi-document" style="font-size: 2rem; color: #ffc107;"></span>
-                                    <h6 class="mt-2">Report Generator</h6>
-                                    <p class="small text-muted">Create progress reports</p>
-                                    <button class="btn btn-sm btn-outline-warning" @onclick="GenerateReport">Generate</button>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="alert alert-info">
+                        <h6>Future Development</h6>
+                        <p class="mb-0">This section will include local event features such as:</p>
+                        <ul class="mb-0 mt-2">
+                            <li>Public library calendar integration</li>
+                            <li>Community events and activities</li>
+                            <li>Local educational workshops</li>
+                            <li>Field trip opportunities</li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -168,14 +136,14 @@
                         <button class="btn btn-primary" @onclick="AddNewResource">
                             <span class="oi oi-plus"></span> Add New Resource
                         </button>
-                        <button class="btn btn-outline-secondary" @onclick="UploadFile">
-                            <span class="oi oi-upload"></span> Upload File
+                        <button class="btn btn-outline-secondary" @onclick="OpenGradeCalculator">
+                            <span class="oi oi-calculator"></span> Grade Calculator
                         </button>
-                        <button class="btn btn-outline-info" @onclick="SearchResources">
-                            <span class="oi oi-search"></span> Search Resources
+                        <button class="btn btn-outline-info" @onclick="StartLessonTimer">
+                            <span class="oi oi-clock"></span> Lesson Timer
                         </button>
-                        <button class="btn btn-outline-success" @onclick="ShareResource">
-                            <span class="oi oi-share"></span> Share Resource
+                        <button class="btn btn-outline-success" @onclick="ViewProgressTracker">
+                            <span class="oi oi-chart"></span> Progress Tracker
                         </button>
                     </div>
                 </div>
@@ -551,6 +519,30 @@
     private void ShareResource()
     {
         // In a real implementation, this would open a sharing dialog
+        // For now, we'll just show a message
+    }
+
+    private void OpenMathCurriculum()
+    {
+        // In a real implementation, this would open the Math Curriculum resource
+        // For now, we'll just show a message
+    }
+
+    private void OpenScienceExperiments()
+    {
+        // In a real implementation, this would open the Science Experiments resource
+        // For now, we'll just show a message
+    }
+
+    private void OpenLanguageArts()
+    {
+        // In a real implementation, this would open the Language Arts resource
+        // For now, we'll just show a message
+    }
+
+    private void OpenHistoryTimeline()
+    {
+        // In a real implementation, this would open the History Timeline resource
         // For now, we'll just show a message
     }
 

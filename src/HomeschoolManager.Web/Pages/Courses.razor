@@ -50,6 +50,9 @@
                 <button type="button" class="btn btn-outline-secondary @(sortBy == "GradeLevel" ? "active" : "")" @onclick="SortByGradeLevel">
                     <span class="oi oi-sort-ascending"></span> Grade
                 </button>
+                <button type="button" class="btn btn-outline-secondary @(sortBy == "Student" ? "active" : "")" @onclick="SortByStudent">
+                    <span class="oi oi-sort-ascending"></span> Student
+                </button>
                 <button type="button" class="btn btn-outline-secondary @(sortBy == "StartDate" ? "active" : "")" @onclick="SortByStartDate">
                     <span class="oi oi-sort-ascending"></span> Start Date
                 </button>
@@ -82,6 +85,7 @@
                                 </div>
                                 <p class="mb-1">@course.Subject - @course.GradeLevel</p>
                                 <small class="text-muted">
+                                    @(course.Students.FirstOrDefault()?.FirstName ?? "No Student") • 
                                     @course.LessonPlans.Count lesson plans • 
                                     @course.Assignments.Count assignments
                                 </small>
@@ -140,9 +144,15 @@
                 <div class="card mt-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Lesson Plans</h5>
-                        <button class="btn btn-primary btn-sm" @onclick="ShowAddLessonPlanModal">
-                            <span class="oi oi-plus"></span> Add Lesson Plan
-                        </button>
+                        <div>
+                            <button class="btn btn-primary btn-sm me-2" @onclick="ShowAddLessonPlanModal">
+                                <span class="oi oi-plus"></span> Add Lesson Plan
+                            </button>
+                            <!-- TODO: Future feature - Import lesson plans from external sources like Khan Academy -->
+                            <button class="btn btn-outline-info btn-sm" disabled title="Coming Soon: Import from Khan Academy and other external sources">
+                                <span class="oi oi-download"></span> Import
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         @if (selectedCourse.LessonPlans.Any())
@@ -180,7 +190,7 @@
                                                         <span class="oi oi-pencil"></span> Edit
                                                     </button>
                                                     <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteLessonPlan(lessonPlan)">
-                                                        <span class="oi oi-trash"></span>
+                                                        <span class="oi oi-trash">Delete</span>
                                                     </button>
                                                 </div>
                                             </div>
@@ -356,62 +366,65 @@
                     <button type="button" class="btn-close" @onclick="CloseEditCourseModal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Course Name</label>
-                        <input type="text" class="form-control" @bind="editingCourse.Name" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-control" rows="3" @bind="editingCourse.Description"></textarea>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Subject</label>
-                                <select class="form-select" @bind="editingCourse.Subject">
-                                    <option value="">Select Subject</option>
-                                    @foreach (var subject in availableSubjects)
-                                    {
-                                        <option value="@subject">@subject</option>
-                                    }
-                                </select>
+                    @if (editingCourse != null)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Course Name</label>
+                            <input type="text" class="form-control" @bind="editingCourse.Name" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" rows="3" @bind="editingCourse.Description"></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Subject</label>
+                                    <select class="form-select" @bind="editingCourse.Subject">
+                                        <option value="">Select Subject</option>
+                                        @foreach (var subject in availableSubjects)
+                                        {
+                                            <option value="@subject">@subject</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Grade Level</label>
+                                    <select class="form-select" @bind="editingCourse.GradeLevel">
+                                        <option value="">Select Grade</option>
+                                        @foreach (var grade in availableGradeLevels)
+                                        {
+                                            <option value="@grade">@grade</option>
+                                        }
+                                    </select>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Grade Level</label>
-                                <select class="form-select" @bind="editingCourse.GradeLevel">
-                                    <option value="">Select Grade</option>
-                                    @foreach (var grade in availableGradeLevels)
-                                    {
-                                        <option value="@grade">@grade</option>
-                                    }
-                                </select>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Start Date</label>
+                                    <input type="date" class="form-control" @bind="editingCourse.StartDate" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">End Date (Optional)</label>
+                                    <input type="date" class="form-control" @bind="editingCourse.EndDate" />
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Start Date</label>
-                                <input type="date" class="form-control" @bind="editingCourse.StartDate" />
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" @bind="editingCourse.IsActive" id="courseActive">
+                                <label class="form-check-label" for="courseActive">
+                                    Course is Active
+                                </label>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">End Date (Optional)</label>
-                                <input type="date" class="form-control" @bind="editingCourse.EndDate" />
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" @bind="editingCourse.IsActive" id="courseActive">
-                            <label class="form-check-label" for="courseActive">
-                                Course is Active
-                            </label>
-                        </div>
-                    </div>
+                    }
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="CloseEditCourseModal">Cancel</button>
@@ -577,6 +590,7 @@
                 EndDate = new DateTime(2025, 6, 15), 
                 IsActive = true, 
                 CreatedAt = DateTime.Now.AddDays(-30),
+                Students = new List<Student> { new() { Id = 1, FirstName = "Liam", LastName = "Johnson", GradeLevel = "8th" } },
                 LessonPlans = new List<LessonPlan>
                 {
                     new() { Id = 1, Title = "Introduction to Variables", Description = "Understanding variables and expressions", Objectives = "Students will identify variables and write simple expressions", Materials = "Whiteboard, markers, worksheets", Activities = "1. Review number concepts\n2. Introduce variables\n3. Practice problems", Assessment = "Worksheet completion", DurationMinutes = 45, WeekNumber = 1, DayNumber = 1, CourseId = 1 },
@@ -585,6 +599,19 @@
             },
             new() { 
                 Id = 2, 
+                Name = "English 101", 
+                Description = "Fundamental English language skills and literature appreciation.", 
+                Subject = "Language Arts", 
+                GradeLevel = "8th", 
+                StartDate = new DateTime(2024, 9, 1), 
+                EndDate = new DateTime(2025, 6, 15), 
+                IsActive = true, 
+                CreatedAt = DateTime.Now.AddDays(-25),
+                Students = new List<Student> { new() { Id = 1, FirstName = "Liam", LastName = "Johnson", GradeLevel = "8th" } },
+                LessonPlans = new List<LessonPlan>()
+            },
+            new() { 
+                Id = 3, 
                 Name = "World History: Ancient Civilizations", 
                 Description = "Exploration of ancient civilizations and their impact on modern society.", 
                 Subject = "History", 
@@ -593,33 +620,49 @@
                 EndDate = new DateTime(2025, 6, 15), 
                 IsActive = true, 
                 CreatedAt = DateTime.Now.AddDays(-25),
+                Students = new List<Student> { new() { Id = 1, FirstName = "Liam", LastName = "Johnson", GradeLevel = "8th" } },
                 LessonPlans = new List<LessonPlan>
                 {
-                    new() { Id = 3, Title = "Introduction to Ancient Egypt", Description = "Overview of Egyptian civilization", Objectives = "Students will understand Egyptian geography and culture", Materials = "Maps, images, videos", Activities = "1. Map exploration\n2. Video presentation\n3. Discussion", Assessment = "Written summary", DurationMinutes = 50, WeekNumber = 1, DayNumber = 1, CourseId = 2 }
+                    new() { Id = 3, Title = "Introduction to Ancient Egypt", Description = "Overview of Egyptian civilization", Objectives = "Students will understand Egyptian geography and culture", Materials = "Maps, images, videos", Activities = "1. Map exploration\n2. Video presentation\n3. Discussion", Assessment = "Written summary", DurationMinutes = 50, WeekNumber = 1, DayNumber = 1, CourseId = 3 }
                 }
             },
             new() { 
-                Id = 3, 
-                Name = "Creative Writing Workshop", 
-                Description = "Developing writing skills through creative expression and storytelling.", 
-                Subject = "Language Arts", 
-                GradeLevel = "7th", 
+                Id = 4, 
+                Name = "Art Fundamentals", 
+                Description = "Introduction to various art forms and creative expression.", 
+                Subject = "Art", 
+                GradeLevel = "8th", 
                 StartDate = new DateTime(2024, 9, 1), 
-                EndDate = null, 
+                EndDate = new DateTime(2025, 6, 15), 
                 IsActive = true, 
                 CreatedAt = DateTime.Now.AddDays(-20),
+                Students = new List<Student> { new() { Id = 1, FirstName = "Liam", LastName = "Johnson", GradeLevel = "8th" } },
                 LessonPlans = new List<LessonPlan>()
             },
             new() { 
-                Id = 4, 
+                Id = 5, 
                 Name = "Biology: Cell Structure", 
                 Description = "Study of cell biology and microscopic organisms.", 
                 Subject = "Science", 
                 GradeLevel = "9th", 
                 StartDate = new DateTime(2024, 9, 1), 
                 EndDate = new DateTime(2025, 1, 15), 
-                IsActive = false, 
+                IsActive = true, 
                 CreatedAt = DateTime.Now.AddDays(-60),
+                Students = new List<Student> { new() { Id = 2, FirstName = "Emma", LastName = "Smith", GradeLevel = "9th" } },
+                LessonPlans = new List<LessonPlan>()
+            },
+            new() { 
+                Id = 6, 
+                Name = "Language Arts", 
+                Description = "Advanced language arts and literature analysis.", 
+                Subject = "Language Arts", 
+                GradeLevel = "9th", 
+                StartDate = new DateTime(2024, 9, 1), 
+                EndDate = new DateTime(2025, 6, 15), 
+                IsActive = true, 
+                CreatedAt = DateTime.Now.AddDays(-20),
+                Students = new List<Student> { new() { Id = 2, FirstName = "Emma", LastName = "Smith", GradeLevel = "9th" } },
                 LessonPlans = new List<LessonPlan>()
             }
         };
@@ -643,6 +686,7 @@
             "Name" => c.Name,
             "Subject" => c.Subject,
             "GradeLevel" => c.GradeLevel,
+            "Student" => c.Students.FirstOrDefault()?.FirstName ?? "No Student",
             "StartDate" => c.StartDate.ToString(),
             _ => c.Name
         })
@@ -656,6 +700,7 @@
     private void SortByName() => SortBy("Name");
     private void SortBySubject() => SortBy("Subject");
     private void SortByGradeLevel() => SortBy("GradeLevel");
+    private void SortByStudent() => SortBy("Student");
     private void SortByStartDate() => SortBy("StartDate");
 
     private void SortBy(string field)

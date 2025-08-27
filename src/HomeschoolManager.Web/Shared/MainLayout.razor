@@ -1,4 +1,5 @@
 @using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
 @inherits LayoutComponentBase
 
 <PageTitle>Homeschool Manager</PageTitle>
@@ -10,13 +11,34 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="" class="btn btn-outline-primary">
-                <span class="oi oi-home"></span> Home
-            </a>
+            <div class="d-flex gap-2">
+                <a href="" class="btn btn-outline-primary">
+                    <span class="oi oi-home"></span> Home
+                </a>
+                <button @onclick="GoBack" class="btn btn-outline-secondary" disabled="@(!CanGoBack())">
+                    <span class="oi oi-arrow-left"></span> Back
+                </button>
+            </div>
         </div>
 
         <article class="content px-4">
             @Body
         </article>
     </main>
-</div> 
+</div>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    private bool CanGoBack()
+    {
+        // Check if we can go back in browser history
+        return Navigation.Uri != Navigation.BaseUri;
+    }
+
+    private async Task GoBack()
+    {
+        await JSRuntime.InvokeVoidAsync("history.back");
+    }
+} 

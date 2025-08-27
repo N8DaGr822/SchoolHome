@@ -85,18 +85,18 @@
                                                 }
                                             </td>
                                             <td>
-                                                <div class="btn-group btn-group-sm" role="group">
-                                                    <button class="btn btn-outline-primary" @onclick="() => ViewAssignment(assignment)">
-                                                        <span class="oi oi-eye"></span>
+                                                <div class="d-flex gap-2">
+                                                    <button class="btn btn-outline-primary btn-sm" @onclick="() => ViewAssignment(assignment)">
+                                                        <span class="oi oi-eye"></span> View
                                                     </button>
-                                                    <button class="btn btn-outline-warning" @onclick="() => EditAssignment(assignment)">
-                                                        <span class="oi oi-pencil"></span>
+                                                    <button class="btn btn-outline-warning btn-sm" @onclick="() => EditAssignment(assignment)">
+                                                        <span class="oi oi-pencil"></span> Edit
                                                     </button>
-                                                    <button class="btn btn-outline-success" @onclick="() => GradeAssignment(assignment)">
-                                                        <span class="oi oi-check"></span>
+                                                    <button class="btn btn-outline-success btn-sm" @onclick="() => GradeAssignment(assignment)">
+                                                        <span class="oi oi-check"></span> Grade
                                                     </button>
-                                                    <button class="btn btn-outline-danger" @onclick="() => DeleteAssignment(assignment)">
-                                                        <span class="oi oi-trash"></span>
+                                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAssignment(assignment)">
+                                                        <span class="oi oi-trash"></span> Delete
                                                     </button>
                                                 </div>
                                             </td>
@@ -207,13 +207,16 @@
                     <button type="button" class="btn-close" @onclick="CloseViewAssignmentModal"></button>
                 </div>
                 <div class="modal-body">
-                    <p><strong>Title:</strong> @viewingAssignment.Title</p>
-                    <p><strong>Description:</strong> @viewingAssignment.Description</p>
-                    <p><strong>Student:</strong> @viewingAssignment.StudentName</p>
-                    <p><strong>Subject:</strong> @viewingAssignment.Subject</p>
-                    <p><strong>Due Date:</strong> @viewingAssignment.DueDate.ToString("MM/dd/yyyy")</p>
-                    <p><strong>Status:</strong> <span class="badge bg-@GetStatusColor(viewingAssignment.Status)">@viewingAssignment.Status</span></p>
-                    <p><strong>Grade:</strong> @viewingAssignment.Grade</p>
+                    @if (viewingAssignment != null)
+                    {
+                        <p><strong>Title:</strong> @viewingAssignment.Title</p>
+                        <p><strong>Description:</strong> @viewingAssignment.Description</p>
+                        <p><strong>Student:</strong> @viewingAssignment.StudentName</p>
+                        <p><strong>Subject:</strong> @viewingAssignment.Subject</p>
+                        <p><strong>Due Date:</strong> @viewingAssignment.DueDate.ToString("MM/dd/yyyy")</p>
+                        <p><strong>Status:</strong> <span class="badge bg-@GetStatusColor(viewingAssignment.Status)">@viewingAssignment.Status</span></p>
+                        <p><strong>Grade:</strong> @viewingAssignment.Grade</p>
+                    }
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="CloseViewAssignmentModal">Close</button>
@@ -235,58 +238,61 @@
                     <button type="button" class="btn-close" @onclick="CloseEditAssignmentModal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Assignment Title</label>
-                        <input type="text" class="form-control" @bind="editingAssignment.Title" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-control" rows="3" @bind="editingAssignment.Description"></textarea>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Student</label>
-                                <select class="form-select" @bind="editingAssignment.StudentName">
-                                    <option value="">Select Student</option>
-                                    @foreach (var student in availableStudents)
-                                    {
-                                        <option value="@student">@student</option>
-                                    }
-                                </select>
+                    @if (editingAssignment != null)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Assignment Title</label>
+                            <input type="text" class="form-control" @bind="editingAssignment.Title" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" rows="3" @bind="editingAssignment.Description"></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Student</label>
+                                    <select class="form-select" @bind="editingAssignment.StudentName">
+                                        <option value="">Select Student</option>
+                                        @foreach (var student in availableStudents)
+                                        {
+                                            <option value="@student">@student</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Subject</label>
+                                    <select class="form-select" @bind="editingAssignment.Subject">
+                                        <option value="">Select Subject</option>
+                                        @foreach (var subject in availableSubjects)
+                                        {
+                                            <option value="@subject">@subject</option>
+                                        }
+                                    </select>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Subject</label>
-                                <select class="form-select" @bind="editingAssignment.Subject">
-                                    <option value="">Select Subject</option>
-                                    @foreach (var subject in availableSubjects)
-                                    {
-                                        <option value="@subject">@subject</option>
-                                    }
-                                </select>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Due Date</label>
+                                    <input type="date" class="form-control" @bind="editingAssignment.DueDate" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Status</label>
+                                    <select class="form-select" @bind="editingAssignment.Status">
+                                        <option value="Assigned">Assigned</option>
+                                        <option value="InProgress">In Progress</option>
+                                        <option value="Completed">Completed</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Due Date</label>
-                                <input type="date" class="form-control" @bind="editingAssignment.DueDate" />
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Status</label>
-                                <select class="form-select" @bind="editingAssignment.Status">
-                                    <option value="Assigned">Assigned</option>
-                                    <option value="InProgress">In Progress</option>
-                                    <option value="Completed">Completed</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    }
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="CloseEditAssignmentModal">Cancel</button>
@@ -309,22 +315,25 @@
                     <button type="button" class="btn-close" @onclick="CloseGradeAssignmentModal"></button>
                 </div>
                 <div class="modal-body">
-                    <p><strong>Assignment:</strong> @gradingAssignment.Title</p>
-                    <p><strong>Student:</strong> @gradingAssignment.StudentName</p>
-                    <p><strong>Current Grade:</strong> @gradingAssignment.Grade</p>
-                    <div class="mb-3">
-                        <label class="form-label">New Grade</label>
-                        <select class="form-select" @bind="gradingAssignment.Grade">
-                            <option value="A">A</option>
-                            <option value="A+">A+</option>
-                            <option value="B">B</option>
-                            <option value="B+">B+</option>
-                            <option value="C">C</option>
-                            <option value="C+">C+</option>
-                            <option value="D">D</option>
-                            <option value="F">F</option>
-                        </select>
-                    </div>
+                    @if (gradingAssignment != null)
+                    {
+                        <p><strong>Assignment:</strong> @gradingAssignment.Title</p>
+                        <p><strong>Student:</strong> @gradingAssignment.StudentName</p>
+                        <p><strong>Current Grade:</strong> @gradingAssignment.Grade</p>
+                        <div class="mb-3">
+                            <label class="form-label">New Grade</label>
+                            <select class="form-select" @bind="gradingAssignment.Grade">
+                                <option value="A">A</option>
+                                <option value="A+">A+</option>
+                                <option value="B">B</option>
+                                <option value="B+">B+</option>
+                                <option value="C">C</option>
+                                <option value="C+">C+</option>
+                                <option value="D">D</option>
+                                <option value="F">F</option>
+                            </select>
+                        </div>
+                    }
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="CloseGradeAssignmentModal">Cancel</button>
