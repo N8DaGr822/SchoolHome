@@ -1,0 +1,463 @@
+@page "/students-with-services"
+@using Microsoft.AspNetCore.Components
+@using HomeschoolManager.Core.Entities
+@using HomeschoolManager.Application.Services
+@inject IStudentService StudentService
+
+<PageTitle>Students (With Services) - Homeschool Manager</PageTitle>
+
+<div class="container-fluid">
+    <h1>Student Management (Using Services)</h1>
+    
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p>Loading students...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <!-- Student List -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Students (@students.Count)</h5>
+                        <button class="btn btn-primary btn-sm" @onclick="ShowAddStudentModal">
+                            <span class="oi oi-plus"></span> Add Student
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+                            @foreach (var student in students)
+                            {
+                                <button class="list-group-item list-group-item-action @(selectedStudent?.Id == student.Id ? "active" : "")" 
+                                        @onclick="() => SelectStudent(student)">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">@student.FirstName @student.LastName</h6>
+                                        <small>@CalculateAge(student.DateOfBirth) years old</small>
+                                    </div>
+                                    <p class="mb-1">Grade @student.GradeLevel</p>
+                                    <small class="text-muted">GPA: @student.GPA.ToString("F2")</small>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Details -->
+            <div class="col-md-8">
+                @if (selectedStudent != null)
+                {
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">@selectedStudent.FirstName @selectedStudent.LastName's Profile</h5>
+                            <div>
+                                <button class="btn btn-warning btn-sm me-2" @onclick="() => ShowEditStudentModal(selectedStudent)">
+                                    <span class="oi oi-pencil"></span> Edit
+                                </button>
+                                <button class="btn btn-danger btn-sm" @onclick="() => DeleteStudent(selectedStudent)">
+                                    <span class="oi oi-trash"></span> Delete
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Personal Information</h6>
+                                    <p><strong>Age:</strong> @CalculateAge(selectedStudent.DateOfBirth) years old</p>
+                                    <p><strong>Grade Level:</strong> @selectedStudent.GradeLevel</p>
+                                    <p><strong>Birth Date:</strong> @selectedStudent.DateOfBirth.ToString("MM/dd/yyyy")</p>
+                                    <p><strong>Email:</strong> @selectedStudent.Email</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Academic Information</h6>
+                                    <p><strong>GPA:</strong> @selectedStudent.GPA.ToString("F2")</p>
+                                    <p><strong>Total Credits:</strong> @selectedStudent.TotalCredits</p>
+                                    <p><strong>Enrollment Date:</strong> @selectedStudent.EnrollmentDate.ToString("MM/dd/yyyy")</p>
+                                    <p><strong>Last Updated:</strong> @(selectedStudent.UpdatedAt?.ToString("MM/dd/yyyy") ?? "Never")</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <h5 class="text-muted">Select a Student</h5>
+                            <p class="text-muted">Choose a student from the list to view their details</p>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Add Student Modal -->
+@if (showAddModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Student</h5>
+                    <button type="button" class="btn-close" @onclick="CloseAddStudentModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">First Name</label>
+                                <input type="text" class="form-control" @bind="newStudent.FirstName" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Last Name</label>
+                                <input type="text" class="form-control" @bind="newStudent.LastName" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" @bind="newStudent.Email" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Grade Level</label>
+                                <select class="form-select" @bind="newStudent.GradeLevel">
+                                    <option value="">Select Grade</option>
+                                    <option value="K">Kindergarten</option>
+                                    <option value="1st">1st Grade</option>
+                                    <option value="2nd">2nd Grade</option>
+                                    <option value="3rd">3rd Grade</option>
+                                    <option value="4th">4th Grade</option>
+                                    <option value="5th">5th Grade</option>
+                                    <option value="6th">6th Grade</option>
+                                    <option value="7th">7th Grade</option>
+                                    <option value="8th">8th Grade</option>
+                                    <option value="9th">9th Grade</option>
+                                    <option value="10th">10th Grade</option>
+                                    <option value="11th">11th Grade</option>
+                                    <option value="12th">12th Grade</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Date of Birth</label>
+                                <input type="date" class="form-control" @bind="newStudent.DateOfBirth" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">GPA</label>
+                                <input type="number" step="0.1" min="0" max="4" class="form-control" @bind="newStudent.GPA" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseAddStudentModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="AddStudent" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        }
+                        Add Student
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+<!-- Edit Student Modal -->
+@if (showEditModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Student</h5>
+                    <button type="button" class="btn-close" @onclick="CloseEditStudentModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (editingStudent != null)
+                    {
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">First Name</label>
+                                    <input type="text" class="form-control" @bind="editingStudent.FirstName" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Last Name</label>
+                                    <input type="text" class="form-control" @bind="editingStudent.LastName" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" @bind="editingStudent.Email" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Grade Level</label>
+                                    <select class="form-select" @bind="editingStudent.GradeLevel">
+                                        <option value="">Select Grade</option>
+                                        <option value="K">Kindergarten</option>
+                                        <option value="1st">1st Grade</option>
+                                        <option value="2nd">2nd Grade</option>
+                                        <option value="3rd">3rd Grade</option>
+                                        <option value="4th">4th Grade</option>
+                                        <option value="5th">5th Grade</option>
+                                        <option value="6th">6th Grade</option>
+                                        <option value="7th">7th Grade</option>
+                                        <option value="8th">8th Grade</option>
+                                        <option value="9th">9th Grade</option>
+                                        <option value="10th">10th Grade</option>
+                                        <option value="11th">11th Grade</option>
+                                        <option value="12th">12th Grade</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Date of Birth</label>
+                                    <input type="date" class="form-control" @bind="editingStudent.DateOfBirth" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">GPA</label>
+                                    <input type="number" step="0.1" min="0" max="4" class="form-control" @bind="editingStudent.GPA" />
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseEditStudentModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="SaveStudent" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        }
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private List<Student> students = new();
+    private Student? selectedStudent;
+    private bool isLoading = true;
+    private bool isSaving = false;
+    
+    private bool showAddModal = false;
+    private Student newStudent = new();
+
+    private bool showEditModal = false;
+    private Student? editingStudent;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStudents();
+    }
+
+    private async Task LoadStudents()
+    {
+        try
+        {
+            isLoading = true;
+            students = (await StudentService.GetAllStudentsAsync()).ToList();
+            
+            // Select first student by default
+            if (students.Any())
+            {
+                SelectStudent(students.First());
+            }
+        }
+        catch (Exception ex)
+        {
+            // In a real application, you would show an error message to the user
+            Console.WriteLine($"Error loading students: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void SelectStudent(Student student)
+    {
+        selectedStudent = student;
+    }
+
+    private int CalculateAge(DateTime dateOfBirth)
+    {
+        var today = DateTime.Today;
+        var age = today.Year - dateOfBirth.Year;
+        if (dateOfBirth.Date > today.AddYears(-age)) age--;
+        return age;
+    }
+
+    private void ShowAddStudentModal()
+    {
+        newStudent = new Student { 
+            DateOfBirth = DateTime.Today.AddYears(-6),
+            GPA = 0.0,
+            TotalCredits = 0,
+            EnrollmentDate = DateTime.Today,
+            CreatedAt = DateTime.UtcNow
+        };
+        showAddModal = true;
+    }
+
+    private void CloseAddStudentModal()
+    {
+        showAddModal = false;
+    }
+
+    private async Task AddStudent()
+    {
+        if (!string.IsNullOrEmpty(newStudent.FirstName) && !string.IsNullOrEmpty(newStudent.LastName))
+        {
+            try
+            {
+                isSaving = true;
+                newStudent.EnrollmentDate = DateTime.Now;
+                newStudent.CreatedAt = DateTime.Now;
+                newStudent.Courses = new List<Course>();
+                newStudent.Assignments = new List<Assignment>();
+                newStudent.Grades = new List<Grade>();
+                
+                var createdStudent = await StudentService.CreateStudentAsync(newStudent);
+                students.Add(createdStudent);
+                CloseAddStudentModal();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                // In a real application, you would show an error message to the user
+                Console.WriteLine($"Error adding student: {ex.Message}");
+            }
+            finally
+            {
+                isSaving = false;
+            }
+        }
+    }
+
+    private void ShowEditStudentModal(Student student)
+    {
+        // Create a copy of the student for editing
+        editingStudent = new Student
+        {
+            Id = student.Id,
+            FirstName = student.FirstName,
+            LastName = student.LastName,
+            Email = student.Email,
+            DateOfBirth = student.DateOfBirth,
+            GradeLevel = student.GradeLevel,
+            GPA = student.GPA,
+            TotalCredits = student.TotalCredits,
+            EnrollmentDate = student.EnrollmentDate,
+            CreatedAt = student.CreatedAt,
+            UpdatedAt = student.UpdatedAt,
+            Courses = student.Courses,
+            Assignments = student.Assignments,
+            Grades = student.Grades
+        };
+        showEditModal = true;
+    }
+
+    private void CloseEditStudentModal()
+    {
+        showEditModal = false;
+        editingStudent = null;
+    }
+
+    private async Task SaveStudent()
+    {
+        if (editingStudent != null && !string.IsNullOrEmpty(editingStudent.FirstName) && !string.IsNullOrEmpty(editingStudent.LastName))
+        {
+            try
+            {
+                isSaving = true;
+                var updatedStudent = await StudentService.UpdateStudentAsync(editingStudent);
+                
+                // Update the student in the local list
+                var existingStudent = students.FirstOrDefault(s => s.Id == editingStudent.Id);
+                if (existingStudent != null)
+                {
+                    var index = students.IndexOf(existingStudent);
+                    students[index] = updatedStudent;
+                }
+
+                // Update selected student if it's the one being edited
+                if (selectedStudent?.Id == editingStudent.Id)
+                {
+                    selectedStudent = updatedStudent;
+                }
+                
+                CloseEditStudentModal();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                // In a real application, you would show an error message to the user
+                Console.WriteLine($"Error updating student: {ex.Message}");
+            }
+            finally
+            {
+                isSaving = false;
+            }
+        }
+    }
+
+    private async Task DeleteStudent(Student student)
+    {
+        try
+        {
+            await StudentService.DeleteStudentAsync(student.Id);
+            students.Remove(student);
+            
+            if (selectedStudent?.Id == student.Id)
+            {
+                selectedStudent = students.FirstOrDefault();
+            }
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            // In a real application, you would show an error message to the user
+            Console.WriteLine($"Error deleting student: {ex.Message}");
+        }
+    }
+}

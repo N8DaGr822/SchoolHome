@@ -9,7 +9,9 @@ public static class ServiceCollectionExtensions
     {
         // Register application services here
         services.AddScoped<IStudentService, StudentService>();
-        // Add other services as they are implemented
+        services.AddScoped<ICourseService, CourseService>();
+        services.AddScoped<IAssignmentService, AssignmentService>();
+        services.AddScoped<ILessonPlanService, LessonPlanService>();
         
         return services;
     }
