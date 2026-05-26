@@ -1,4 +1,5 @@
 @using Microsoft.AspNetCore.Components
+@inject IJSRuntime JS
 @inherits LayoutComponentBase
 
 <PageTitle>Homeschool Manager</PageTitle>
@@ -13,10 +14,41 @@
             <a href="" class="btn btn-outline-primary">
                 <span class="oi oi-home"></span> Home
             </a>
+            <button type="button"
+                    class="btn btn-theme-toggle"
+                    title="Toggle color theme"
+                    aria-label="Toggle color theme"
+                    aria-pressed="@isDarkMode"
+                    @onclick="ToggleThemeAsync">
+                <span class="oi @(isDarkMode ? "oi-sun" : "oi-moon")" aria-hidden="true"></span>
+                <span>@(isDarkMode ? "Light" : "Dark")</span>
+            </button>
         </div>
 
         <article class="content px-4">
             @Body
         </article>
     </main>
-</div> 
+</div>
+
+@code {
+    private bool isDarkMode;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var theme = await JS.InvokeAsync<string>("homeschoolTheme.get");
+        isDarkMode = theme == "dark";
+        StateHasChanged();
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        isDarkMode = !isDarkMode;
+        await JS.InvokeVoidAsync("homeschoolTheme.set", isDarkMode ? "dark" : "light");
+    }
+}
