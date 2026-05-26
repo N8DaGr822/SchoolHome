@@ -31,7 +31,7 @@ This solution follows Clean Architecture principles:
 
 ### Prerequisites
 
-- .NET 8.0 SDK
+- .NET 10.0 SDK
 - Visual Studio 2022 or VS Code
 
 ### Running the Application
@@ -66,13 +66,17 @@ dotnet run --project src/HomeschoolManager.Web
 
 ## Dependencies
 
-- .NET 8.0
+- .NET 10.0
 - Blazor Server
 - xUnit (for testing)
+
+## Local Data
+
+The application uses a JSON-backed repository by default. In development, data is stored in `App_Data/homeschool-data.json` and seeded automatically on first run. The `App_Data/` folder is ignored by git so local homeschool records are not committed.
 
 ## Contributing
 
 1. Follow Clean Architecture principles
 2. Write unit tests for new features
 3. Use meaningful commit messages
-4. Update documentation as needed 
+4. Update documentation as needed

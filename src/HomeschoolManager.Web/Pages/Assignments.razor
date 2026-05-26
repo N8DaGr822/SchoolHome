@@ -1,20 +1,366 @@
 @page "/assignments"
-@using Microsoft.AspNetCore.Components
+@using HomeschoolManager.Application.Services
+@using HomeschoolManager.Core.Entities
+@inject IAssignmentService AssignmentService
+@inject IStudentService StudentService
+@inject ICourseService CourseService
+@inject IJSRuntime JS
 
 <PageTitle>Assignments - Homeschool Manager</PageTitle>
 
 <div class="container-fluid">
-    <h1>Assignments</h1>
-    
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Assignment Management</h5>
-                    <p class="card-text">This page will allow you to track homework and projects.</p>
-                    <p class="text-muted">Feature coming soon...</p>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="mb-1">Assignments</h1>
+            <p class="text-muted mb-0">Create, track, and update student work.</p>
+        </div>
+        <button class="btn btn-primary" @onclick="ShowAddAssignmentModal">
+            <span class="oi oi-plus"></span> Add Assignment
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <select class="form-select" @bind="selectedStudentId">
+                <option value="0">All Students</option>
+                @foreach (var student in students)
+                {
+                    <option value="@student.Id">@student.FirstName @student.LastName</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <select class="form-select" @bind="selectedStatus">
+                <option value="">All Statuses</option>
+                @foreach (var status in Enum.GetValues<AssignmentStatus>())
+                {
+                    <option value="@status">@status</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-4">
+            <input class="form-control" placeholder="Search assignments..." @bind="searchTerm" @bind:event="oninput" />
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Assignment List (@filteredAssignments.Count())</h5>
+        </div>
+        <div class="card-body">
+            @if (isLoading)
+            {
+                <p class="text-muted mb-0">Loading assignments...</p>
+            }
+            else if (filteredAssignments.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Assignment</th>
+                                <th>Course</th>
+                                <th>Due Date</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var assignment in filteredAssignments)
+                            {
+                                <tr>
+                                    <td>@GetStudentName(assignment.StudentId)</td>
+                                    <td>
+                                        <div class="fw-semibold">@assignment.Title</div>
+                                        @if (!string.IsNullOrWhiteSpace(assignment.Description))
+                                        {
+                                            <small class="text-muted">@assignment.Description</small>
+                                        }
+                                    </td>
+                                    <td>@GetCourseName(assignment.CourseId)</td>
+                                    <td>
+                                        <span class="@GetDueDateClass(assignment)">
+                                            @assignment.DueDate.ToString("MM/dd/yyyy")
+                                        </span>
+                                    </td>
+                                    <td><span class="badge bg-@GetStatusColor(assignment.Status)">@assignment.Status</span></td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            @if (assignment.Status != AssignmentStatus.Completed)
+                                            {
+                                                <button class="btn btn-outline-success" @onclick="() => CompleteAssignment(assignment)">
+                                                    <span class="oi oi-check"></span> Complete
+                                                </button>
+                                            }
+                                            <button class="btn btn-outline-warning" @onclick="() => ShowEditAssignmentModal(assignment)">
+                                                <span class="oi oi-pencil"></span> Edit
+                                            </button>
+                                            <button class="btn btn-outline-danger" @onclick="() => DeleteAssignment(assignment)">
+                                                <span class="oi oi-trash"></span>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
+            }
+            else
+            {
+                <p class="text-muted mb-0">No assignments match the current filters.</p>
+            }
+        </div>
+    </div>
+</div>
+
+@if (showAssignmentModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <EditForm Model="@assignmentForm" OnValidSubmit="SaveAssignment">
+                    <DataAnnotationsValidator />
+                    <div class="modal-header">
+                        <h5 class="modal-title">@(isEditingAssignment ? "Edit Assignment" : "Add Assignment")</h5>
+                        <button type="button" class="btn-close" @onclick="CloseAssignmentModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ValidationSummary />
+                        <div class="mb-3">
+                            <label class="form-label" for="assignment-title">Title</label>
+                            <InputText id="assignment-title" class="form-control" @bind-Value="assignmentForm.Title" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="assignment-description">Description</label>
+                            <InputTextArea id="assignment-description" class="form-control" rows="3" @bind-Value="assignmentForm.Description" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="assignment-student">Student</label>
+                                    <InputSelect id="assignment-student" class="form-select" @bind-Value="assignmentForm.StudentId">
+                                        <option value="0">Select Student</option>
+                                        @foreach (var student in students)
+                                        {
+                                            <option value="@student.Id">@student.FirstName @student.LastName</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="assignment-course">Course</label>
+                                    <InputSelect id="assignment-course" class="form-select" @bind-Value="assignmentForm.CourseId">
+                                        <option value="0">Select Course</option>
+                                        @foreach (var course in courses)
+                                        {
+                                            <option value="@course.Id">@course.Name</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="due-date">Due Date</label>
+                                    <InputDate id="due-date" class="form-control" @bind-Value="assignmentForm.DueDate" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="status">Status</label>
+                                    <InputSelect id="status" class="form-select" @bind-Value="assignmentForm.Status">
+                                        @foreach (var status in Enum.GetValues<AssignmentStatus>())
+                                        {
+                                            <option value="@status">@status</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseAssignmentModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">@(isEditingAssignment ? "Save Changes" : "Add Assignment")</button>
+                    </div>
+                </EditForm>
             </div>
         </div>
     </div>
-</div> 
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private List<Assignment> assignments = new();
+    private List<Student> students = new();
+    private List<Course> courses = new();
+    private Assignment assignmentForm = CreateDefaultAssignment();
+    private string searchTerm = "";
+    private string selectedStatus = "";
+    private int selectedStudentId;
+    private bool isLoading = true;
+    private bool showAssignmentModal;
+    private bool isEditingAssignment;
+    private string? errorMessage;
+
+    private IEnumerable<Assignment> filteredAssignments => assignments
+        .Where(a => selectedStudentId == 0 || a.StudentId == selectedStudentId)
+        .Where(a => string.IsNullOrWhiteSpace(selectedStatus) || a.Status.ToString() == selectedStatus)
+        .Where(a => string.IsNullOrWhiteSpace(searchTerm)
+            || a.Title.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            || a.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+            || a.Subject.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(a => a.Status == AssignmentStatus.Completed)
+        .ThenBy(a => a.DueDate);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            students = (await StudentService.GetAllStudentsAsync()).ToList();
+            courses = (await CourseService.GetAllCoursesAsync()).ToList();
+            assignments = (await AssignmentService.GetAllAssignmentsAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowAddAssignmentModal()
+    {
+        assignmentForm = CreateDefaultAssignment();
+        assignmentForm.StudentId = students.FirstOrDefault()?.Id ?? 0;
+        assignmentForm.CourseId = courses.FirstOrDefault()?.Id ?? 0;
+        isEditingAssignment = false;
+        showAssignmentModal = true;
+    }
+
+    private void ShowEditAssignmentModal(Assignment assignment)
+    {
+        assignmentForm = CloneAssignment(assignment);
+        isEditingAssignment = true;
+        showAssignmentModal = true;
+    }
+
+    private void CloseAssignmentModal()
+    {
+        showAssignmentModal = false;
+    }
+
+    private async Task SaveAssignment()
+    {
+        assignmentForm.Subject = courses.FirstOrDefault(c => c.Id == assignmentForm.CourseId)?.Subject ?? assignmentForm.Subject;
+
+        if (isEditingAssignment)
+        {
+            await AssignmentService.UpdateAssignmentAsync(assignmentForm);
+        }
+        else
+        {
+            await AssignmentService.CreateAssignmentAsync(assignmentForm);
+        }
+
+        showAssignmentModal = false;
+        await LoadDataAsync();
+    }
+
+    private async Task CompleteAssignment(Assignment assignment)
+    {
+        var updated = CloneAssignment(assignment);
+        updated.Status = AssignmentStatus.Completed;
+        await AssignmentService.UpdateAssignmentAsync(updated);
+        await LoadDataAsync();
+    }
+
+    private async Task DeleteAssignment(Assignment assignment)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete assignment '{assignment.Title}'?");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await AssignmentService.DeleteAssignmentAsync(assignment.Id);
+        await LoadDataAsync();
+    }
+
+    private string GetStudentName(int studentId)
+    {
+        var student = students.FirstOrDefault(s => s.Id == studentId);
+        return student == null ? "Unknown student" : $"{student.FirstName} {student.LastName}";
+    }
+
+    private string GetCourseName(int courseId)
+    {
+        return courses.FirstOrDefault(c => c.Id == courseId)?.Name ?? "Unknown course";
+    }
+
+    private static string GetDueDateClass(Assignment assignment)
+    {
+        return assignment.Status != AssignmentStatus.Completed && assignment.DueDate.Date < DateTime.Today
+            ? "text-danger fw-semibold"
+            : string.Empty;
+    }
+
+    private static string GetStatusColor(AssignmentStatus status)
+    {
+        return status switch
+        {
+            AssignmentStatus.Completed => "success",
+            AssignmentStatus.InProgress => "warning",
+            AssignmentStatus.Assigned => "secondary",
+            AssignmentStatus.Overdue => "danger",
+            _ => "secondary"
+        };
+    }
+
+    private static Assignment CreateDefaultAssignment()
+    {
+        return new Assignment
+        {
+            DueDate = DateTime.Today.AddDays(7),
+            AssignedDate = DateTime.Today,
+            Status = AssignmentStatus.Assigned,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    private static Assignment CloneAssignment(Assignment assignment)
+    {
+        return new Assignment
+        {
+            Id = assignment.Id,
+            Title = assignment.Title,
+            Description = assignment.Description,
+            DueDate = assignment.DueDate,
+            AssignedDate = assignment.AssignedDate,
+            Status = assignment.Status,
+            CourseId = assignment.CourseId,
+            StudentId = assignment.StudentId,
+            CreatedAt = assignment.CreatedAt,
+            UpdatedAt = assignment.UpdatedAt,
+            Subject = assignment.Subject
+        };
+    }
+}

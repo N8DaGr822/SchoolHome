@@ -1,5 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using HomeschoolManager.Core.Entities;
+using HomeschoolManager.Core.Interfaces;
+using HomeschoolManager.Infrastructure.Data;
+using HomeschoolManager.Infrastructure.Repositories;
 
 namespace HomeschoolManager.Infrastructure;
 
@@ -7,9 +11,11 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
-        // Register infrastructure services here
-        // Example: services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
-        
+        services.AddSingleton<HomeschoolDataStore>();
+        services.AddScoped<IStudentRepository, JsonStudentRepository>();
+        services.AddScoped<IRepository<Course>, JsonCourseRepository>();
+        services.AddScoped<IAssignmentRepository, JsonAssignmentRepository>();
+
         return services;
     }
-} 
+}

@@ -1,11 +1,25 @@
 @page "/teach"
-@using Microsoft.AspNetCore.Components
+@using HomeschoolManager.Application.Services
+@using HomeschoolManager.Core.Entities
+@inject IStudentService StudentService
+@inject ICourseService CourseService
+@inject IAssignmentService AssignmentService
 
 <PageTitle>Teach - Homeschool Manager</PageTitle>
 
 <div class="container-fluid">
     <h1>Teaching Dashboard</h1>
-    
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(reportMessage))
+    {
+        <div class="alert alert-info" role="status">@reportMessage</div>
+    }
+
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
@@ -15,19 +29,19 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-3">
-                            <button class="btn btn-primary w-100 mb-2" @onclick="StartTeachingSession">
-                                <span class="oi oi-play-circle"></span> Start Teaching Session
-                            </button>
+                            <a class="btn btn-primary w-100 mb-2" href="#session-tracker">
+                                <span class="oi oi-play-circle"></span> Teaching Session
+                            </a>
                         </div>
                         <div class="col-md-3">
-                            <button class="btn btn-success w-100 mb-2" @onclick="GradeAssignments">
+                            <a class="btn btn-success w-100 mb-2" href="#grading-section">
                                 <span class="oi oi-check"></span> Grade Assignments
-                            </button>
+                            </a>
                         </div>
                         <div class="col-md-3">
-                            <button class="btn btn-info w-100 mb-2" @onclick="ViewProgress">
+                            <a class="btn btn-info w-100 mb-2" href="#progress-section">
                                 <span class="oi oi-bar-chart"></span> View Progress
-                            </button>
+                            </a>
                         </div>
                         <div class="col-md-3">
                             <button class="btn btn-warning w-100 mb-2" @onclick="GenerateReport">
@@ -41,8 +55,7 @@
     </div>
 
     <div class="row">
-        <!-- Teaching Session Tracker -->
-        <div class="col-md-6">
+        <div class="col-md-6" id="session-tracker">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">Teaching Session Tracker</h5>
@@ -63,18 +76,18 @@
                     else
                     {
                         <div class="mb-3">
-                            <label class="form-label">Select Student:</label>
-                            <select class="form-select" @bind="selectedStudent">
-                                <option value="">Choose a student...</option>
+                            <label class="form-label" for="student-select">Select Student</label>
+                            <select id="student-select" class="form-select" @bind="selectedStudentId">
+                                <option value="0">Choose a student...</option>
                                 @foreach (var student in students)
                                 {
-                                    <option value="@student">@student</option>
+                                    <option value="@student.Id">@student.FirstName @student.LastName</option>
                                 }
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Select Subject:</label>
-                            <select class="form-select" @bind="selectedSubject">
+                            <label class="form-label" for="subject-select">Select Subject</label>
+                            <select id="subject-select" class="form-select" @bind="selectedSubject">
                                 <option value="">Choose a subject...</option>
                                 @foreach (var subject in subjects)
                                 {
@@ -82,7 +95,7 @@
                                 }
                             </select>
                         </div>
-                        <button class="btn btn-primary" @onclick="StartTeachingSession" disabled="@(string.IsNullOrEmpty(selectedStudent) || string.IsNullOrEmpty(selectedSubject))">
+                        <button class="btn btn-primary" @onclick="StartTeachingSession" disabled="@(selectedStudentId == 0 || string.IsNullOrEmpty(selectedSubject))">
                             <span class="oi oi-play-circle"></span> Start Session
                         </button>
                     }
@@ -90,7 +103,6 @@
             </div>
         </div>
 
-        <!-- Recent Sessions -->
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
@@ -125,7 +137,7 @@
                     }
                     else
                     {
-                        <p class="text-muted">No recent sessions. Start teaching to see activity here.</p>
+                        <p class="text-muted mb-0">No recent sessions. Start teaching to see activity here.</p>
                     }
                 </div>
             </div>
@@ -133,8 +145,7 @@
     </div>
 
     <div class="row mt-4">
-        <!-- Assignment Grading -->
-        <div class="col-md-8">
+        <div class="col-md-8" id="grading-section">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">Assignment Grading</h5>
@@ -158,29 +169,21 @@
                                     @foreach (var assignment in pendingAssignments)
                                     {
                                         <tr>
-                                            <td>@assignment.Student</td>
+                                            <td>@GetStudentName(assignment.StudentId)</td>
                                             <td>@assignment.Title</td>
                                             <td>@assignment.Subject</td>
                                             <td>@assignment.DueDate.ToString("MM/dd/yyyy")</td>
                                             <td>
-                                                <select class="form-select form-select-sm" @bind="assignment.Grade" style="width: 80px;">
+                                                <select class="form-select form-select-sm" value="@GetDraftGrade(assignment.Id)" @onchange="e => SetDraftGrade(assignment.Id, e.Value?.ToString() ?? string.Empty)" style="width: 88px;">
                                                     <option value="">-</option>
-                                                    <option value="A+">A+</option>
-                                                    <option value="A">A</option>
-                                                    <option value="A-">A-</option>
-                                                    <option value="B+">B+</option>
-                                                    <option value="B">B</option>
-                                                    <option value="B-">B-</option>
-                                                    <option value="C+">C+</option>
-                                                    <option value="C">C</option>
-                                                    <option value="C-">C-</option>
-                                                    <option value="D+">D+</option>
-                                                    <option value="D">D</option>
-                                                    <option value="F">F</option>
+                                                    @foreach (var grade in gradeOptions)
+                                                    {
+                                                        <option value="@grade">@grade</option>
+                                                    }
                                                 </select>
                                             </td>
                                             <td>
-                                                <button class="btn btn-sm btn-success" @onclick="() => SaveGrade(assignment)">
+                                                <button class="btn btn-sm btn-success" @onclick="() => SaveGrade(assignment)" disabled="@string.IsNullOrWhiteSpace(GetDraftGrade(assignment.Id))">
                                                     <span class="oi oi-check"></span> Save
                                                 </button>
                                             </td>
@@ -192,14 +195,13 @@
                     }
                     else
                     {
-                        <p class="text-muted">No pending assignments to grade.</p>
+                        <p class="text-muted mb-0">No pending assignments to grade.</p>
                     }
                 </div>
             </div>
         </div>
 
-        <!-- Teaching Statistics -->
-        <div class="col-md-4">
+        <div class="col-md-4" id="progress-section">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">Teaching Statistics</h5>
@@ -207,34 +209,35 @@
                 <div class="card-body">
                     <div class="row text-center">
                         <div class="col-6">
-                            <h4 class="text-primary">@totalTeachingHours</h4>
-                            <small class="text-muted">Total Hours</small>
+                            <h4 class="text-primary">@totalTeachingHours.ToString("F1")</h4>
+                            <small class="text-muted">Session Hours</small>
                         </div>
                         <div class="col-6">
                             <h4 class="text-success">@completedAssignments</h4>
-                            <small class="text-muted">Graded Today</small>
+                            <small class="text-muted">Completed</small>
                         </div>
                     </div>
                     <hr />
-                    <h6>This Week's Activity</h6>
-                    <div class="mb-2">
-                        <small class="text-muted">Math</small>
-                        <div class="progress" style="height: 8px;">
-                            <div class="progress-bar" style="width: 75%"></div>
-                        </div>
-                    </div>
-                    <div class="mb-2">
-                        <small class="text-muted">Science</small>
-                        <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-success" style="width: 60%"></div>
-                        </div>
-                    </div>
-                    <div class="mb-2">
-                        <small class="text-muted">Language Arts</small>
-                        <div class="progress" style="height: 8px;">
-                            <div class="progress-bar bg-info" style="width: 45%"></div>
-                        </div>
-                    </div>
+                    <h6>Open Work by Subject</h6>
+                    @if (subjectWorkload.Any())
+                    {
+                        @foreach (var item in subjectWorkload)
+                        {
+                            <div class="mb-2">
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">@item.Subject</small>
+                                    <small class="text-muted">@item.Count</small>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar" style="width: @item.Percent%"></div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0">No open assignments.</p>
+                    }
                 </div>
             </div>
         </div>
@@ -242,108 +245,162 @@
 </div>
 
 @code {
-    private bool isTeachingSessionActive = false;
-    private string selectedStudent = "";
+    private readonly List<string> gradeOptions = new()
+    {
+        "A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "F"
+    };
+
+    private bool isTeachingSessionActive;
+    private int selectedStudentId;
     private string selectedSubject = "";
     private string currentStudent = "";
     private string currentSubject = "";
     private DateTime sessionStartTime;
-    
-    private List<string> students = new() { "Emma", "Liam", "Sophia", "Noah", "Olivia" };
-    private List<string> subjects = new() { "Math", "Science", "Language Arts", "History", "Geography", "Art", "Music", "Physical Education" };
-    
+    private double totalTeachingHours;
+    private int completedAssignments;
+    private string? errorMessage;
+    private string? reportMessage;
+
+    private List<Student> students = new();
+    private List<Course> courses = new();
+    private List<string> subjects = new();
     private List<TeachingSession> recentSessions = new();
     private List<Assignment> pendingAssignments = new();
-    
-    private int totalTeachingHours = 24;
-    private int completedAssignments = 8;
+    private List<Assignment> allAssignments = new();
+    private Dictionary<int, string> draftGrades = new();
 
-    protected override void OnInitialized()
+    private IEnumerable<(string Subject, int Count, int Percent)> subjectWorkload
     {
-        // Initialize with sample data
-        recentSessions = new List<TeachingSession>
+        get
         {
-            new() { Student = "Emma", Subject = "Math", Duration = "45 min", Date = DateTime.Now.AddDays(-1) },
-            new() { Student = "Liam", Subject = "Science", Duration = "30 min", Date = DateTime.Now.AddDays(-1) },
-            new() { Student = "Sophia", Subject = "Language Arts", Duration = "60 min", Date = DateTime.Now.AddDays(-2) },
-            new() { Student = "Emma", Subject = "History", Duration = "40 min", Date = DateTime.Now.AddDays(-3) }
-        };
+            var groups = pendingAssignments
+                .GroupBy(a => string.IsNullOrWhiteSpace(a.Subject) ? "Unassigned" : a.Subject)
+                .Select(g => new { Subject = g.Key, Count = g.Count() })
+                .OrderByDescending(g => g.Count)
+                .ToList();
 
-        pendingAssignments = new List<Assignment>
+            var max = groups.Select(g => g.Count).DefaultIfEmpty(1).Max();
+            return groups.Select(g => (g.Subject, g.Count, Math.Max(10, (int)Math.Round((double)g.Count / max * 100))));
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        errorMessage = null;
+
+        try
         {
-            new() { Student = "Emma", Title = "Math Worksheet - Fractions", Subject = "Math", DueDate = DateTime.Now.AddDays(-1), Grade = "" },
-            new() { Student = "Liam", Title = "Science Experiment Report", Subject = "Science", DueDate = DateTime.Now, Grade = "" },
-            new() { Student = "Sophia", Title = "Book Report - Charlotte's Web", Subject = "Language Arts", DueDate = DateTime.Now.AddDays(1), Grade = "" },
-            new() { Student = "Noah", Title = "History Timeline Project", Subject = "History", DueDate = DateTime.Now.AddDays(2), Grade = "" }
-        };
+            students = (await StudentService.GetAllStudentsAsync()).ToList();
+            courses = (await CourseService.GetAllCoursesAsync()).ToList();
+            allAssignments = (await AssignmentService.GetAllAssignmentsAsync()).ToList();
+            pendingAssignments = allAssignments
+                .Where(a => a.Status != AssignmentStatus.Completed)
+                .OrderBy(a => a.DueDate)
+                .ToList();
+            subjects = courses
+                .Select(c => c.Subject)
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct()
+                .OrderBy(s => s)
+                .ToList();
+            completedAssignments = allAssignments.Count(a => a.Status == AssignmentStatus.Completed);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
     }
 
     private void StartTeachingSession()
     {
-        if (!string.IsNullOrEmpty(selectedStudent) && !string.IsNullOrEmpty(selectedSubject))
+        var student = students.FirstOrDefault(s => s.Id == selectedStudentId);
+        if (student == null || string.IsNullOrWhiteSpace(selectedSubject))
         {
-            isTeachingSessionActive = true;
-            currentStudent = selectedStudent;
-            currentSubject = selectedSubject;
-            sessionStartTime = DateTime.Now;
-            
-            // Reset selections
-            selectedStudent = "";
-            selectedSubject = "";
+            return;
         }
+
+        isTeachingSessionActive = true;
+        currentStudent = $"{student.FirstName} {student.LastName}";
+        currentSubject = selectedSubject;
+        sessionStartTime = DateTime.Now;
+        selectedStudentId = 0;
+        selectedSubject = "";
+        reportMessage = null;
     }
 
     private void StopTeachingSession()
     {
-        if (isTeachingSessionActive)
+        if (!isTeachingSessionActive)
         {
-            var session = new TeachingSession
-            {
-                Student = currentStudent,
-                Subject = currentSubject,
-                Duration = GetSessionDuration(),
-                Date = DateTime.Now
-            };
-            
-            recentSessions.Insert(0, session);
-            totalTeachingHours++;
-            
-            isTeachingSessionActive = false;
-            currentStudent = "";
-            currentSubject = "";
+            return;
         }
+
+        var duration = DateTime.Now - sessionStartTime;
+        recentSessions.Insert(0, new TeachingSession
+        {
+            Student = currentStudent,
+            Subject = currentSubject,
+            Duration = FormatDuration(duration),
+            Date = DateTime.Now
+        });
+
+        totalTeachingHours += duration.TotalHours;
+        isTeachingSessionActive = false;
+        currentStudent = "";
+        currentSubject = "";
     }
 
     private string GetSessionDuration()
     {
-        if (!isTeachingSessionActive) return "";
-        
-        var duration = DateTime.Now - sessionStartTime;
-        return $"{(int)duration.TotalMinutes} min";
+        return isTeachingSessionActive ? FormatDuration(DateTime.Now - sessionStartTime) : "";
     }
 
-    private void SaveGrade(Assignment assignment)
+    private async Task SaveGrade(Assignment assignment)
     {
-        if (!string.IsNullOrEmpty(assignment.Grade))
+        if (string.IsNullOrWhiteSpace(GetDraftGrade(assignment.Id)))
         {
-            completedAssignments++;
-            pendingAssignments.Remove(assignment);
+            return;
         }
-    }
 
-    private void GradeAssignments()
-    {
-        // Focus on the grading section
-    }
-
-    private void ViewProgress()
-    {
-        // Navigate to progress view
+        assignment.Status = AssignmentStatus.Completed;
+        await AssignmentService.UpdateAssignmentAsync(assignment);
+        draftGrades.Remove(assignment.Id);
+        await LoadDataAsync();
     }
 
     private void GenerateReport()
     {
-        // Generate teaching report
+        var openCount = pendingAssignments.Count;
+        var completedCount = completedAssignments;
+        reportMessage = $"Report generated {DateTime.Now:MM/dd/yyyy HH:mm}: {students.Count} students, {openCount} open assignments, {completedCount} completed assignments, {totalTeachingHours:F1} teaching session hours tracked in this browser session.";
+    }
+
+    private string GetStudentName(int studentId)
+    {
+        var student = students.FirstOrDefault(s => s.Id == studentId);
+        return student == null ? "Unknown student" : $"{student.FirstName} {student.LastName}";
+    }
+
+    private string GetDraftGrade(int assignmentId)
+    {
+        return draftGrades.TryGetValue(assignmentId, out var grade) ? grade : string.Empty;
+    }
+
+    private void SetDraftGrade(int assignmentId, string grade)
+    {
+        draftGrades[assignmentId] = grade;
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        return duration.TotalHours >= 1
+            ? $"{duration.TotalHours:F1} hr"
+            : $"{Math.Max(1, (int)Math.Round(duration.TotalMinutes))} min";
     }
 
     public class TeachingSession
@@ -353,13 +410,4 @@
         public string Duration { get; set; } = "";
         public DateTime Date { get; set; }
     }
-
-    public class Assignment
-    {
-        public string Student { get; set; } = "";
-        public string Title { get; set; } = "";
-        public string Subject { get; set; } = "";
-        public DateTime DueDate { get; set; }
-        public string Grade { get; set; } = "";
-    }
-} 
+}

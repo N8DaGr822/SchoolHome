@@ -1,47 +1,70 @@
 @page "/students"
-@using Microsoft.AspNetCore.Components
+@using HomeschoolManager.Application.Services
 @using HomeschoolManager.Core.Entities
+@inject IStudentService StudentService
+@inject IJSRuntime JS
 
 <PageTitle>Students - Homeschool Manager</PageTitle>
 
 <div class="container-fluid">
-    <h1>Student Management</h1>
-    
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="mb-1">Student Management</h1>
+            <p class="text-muted mb-0">Track profiles, assignments, and recent grades.</p>
+        </div>
+        <button class="btn btn-primary" @onclick="ShowAddStudentModal">
+            <span class="oi oi-plus"></span> Add Student
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
     <div class="row">
-        <!-- Student List -->
         <div class="col-md-4">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Students</h5>
-                    <button class="btn btn-primary btn-sm" @onclick="ShowAddStudentModal">
-                        <span class="oi oi-plus"></span> Add Student
-                    </button>
+                    <h5 class="mb-0">Students (@students.Count)</h5>
                 </div>
-                <div class="card-body">
-                    <div class="list-group">
-                        @foreach (var student in students)
-                        {
-                            <button class="list-group-item list-group-item-action @(selectedStudent?.Id == student.Id ? "active" : "")" 
-                                    @onclick="() => SelectStudent(student)">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">@student.FirstName @student.LastName</h6>
-                                    <small>@CalculateAge(student.DateOfBirth) years old</small>
-                                </div>
-                                <p class="mb-1">Grade @student.GradeLevel</p>
-                                <small class="text-muted">@student.Courses.Count courses • @student.Assignments.Count assignments</small>
-                            </button>
-                        }
-                    </div>
+                <div class="card-body p-0">
+                    @if (isLoading)
+                    {
+                        <p class="text-muted p-3 mb-0">Loading students...</p>
+                    }
+                    else if (students.Any())
+                    {
+                        <div class="list-group list-group-flush">
+                            @foreach (var student in students)
+                            {
+                                <button class="list-group-item list-group-item-action @(selectedStudent?.Id == student.Id ? "active" : "")"
+                                        @onclick="() => SelectStudent(student)">
+                                    <div class="d-flex w-100 justify-content-between gap-2">
+                                        <h6 class="mb-1">@student.FirstName @student.LastName</h6>
+                                        <small>@CalculateAge(student.DateOfBirth) years old</small>
+                                    </div>
+                                    <p class="mb-1">Grade @student.GradeLevel</p>
+                                    <small class="@(selectedStudent?.Id == student.Id ? "text-white-50" : "text-muted")">
+                                        @student.Courses.Count courses / @student.Assignments.Count assignments
+                                    </small>
+                                </button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="p-3 text-muted">No students yet.</div>
+                    }
                 </div>
             </div>
         </div>
 
-        <!-- Student Details -->
         <div class="col-md-8">
             @if (selectedStudent != null)
             {
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <h5 class="mb-0">@selectedStudent.FirstName @selectedStudent.LastName's Profile</h5>
                         <div>
                             <button class="btn btn-warning btn-sm me-2" @onclick="() => ShowEditStudentModal(selectedStudent)">
@@ -59,7 +82,7 @@
                                 <p><strong>Age:</strong> @CalculateAge(selectedStudent.DateOfBirth) years old</p>
                                 <p><strong>Grade Level:</strong> @selectedStudent.GradeLevel</p>
                                 <p><strong>Birth Date:</strong> @selectedStudent.DateOfBirth.ToString("MM/dd/yyyy")</p>
-                                <p><strong>Email:</strong> @selectedStudent.Email</p>
+                                <p><strong>Email:</strong> @(string.IsNullOrWhiteSpace(selectedStudent.Email) ? "Not provided" : selectedStudent.Email)</p>
                             </div>
                             <div class="col-md-6">
                                 <h6>Academic Information</h6>
@@ -69,24 +92,23 @@
                                 <p><strong>Last Updated:</strong> @(selectedStudent.UpdatedAt?.ToString("MM/dd/yyyy") ?? "Never")</p>
                             </div>
                         </div>
-                        
+
                         <hr />
-                        
+
                         <h6>Courses</h6>
-                        <div class="row">
-                            @foreach (var course in selectedStudent.Courses)
-                            {
-                                <div class="col-md-4 mb-2">
+                        @if (selectedStudent.Courses.Any())
+                        {
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var course in selectedStudent.Courses)
+                                {
                                     <span class="badge bg-primary">@course.Name</span>
-                                </div>
-                            }
-                            @if (!selectedStudent.Courses.Any())
-                            {
-                                <div class="col-12">
-                                    <p class="text-muted">No courses enrolled.</p>
-                                </div>
-                            }
-                        </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0">No courses linked through assignments yet.</p>
+                        }
                     </div>
                 </div>
             }
@@ -95,7 +117,7 @@
                 <div class="card">
                     <div class="card-body text-center">
                         <h5 class="text-muted">Select a Student</h5>
-                        <p class="text-muted">Choose a student from the list to view their details</p>
+                        <p class="text-muted mb-0">Choose a student from the list to view their details.</p>
                     </div>
                 </div>
             }
@@ -105,14 +127,13 @@
     @if (selectedStudent != null)
     {
         <div class="row mt-4">
-            <!-- Grades -->
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
                         <h5 class="mb-0">Recent Grades</h5>
                     </div>
                     <div class="card-body">
-                        @if (selectedStudent.Grades.Any())
+                        @if (selectedStudentGrades.Any())
                         {
                             <div class="table-responsive">
                                 <table class="table table-sm">
@@ -131,7 +152,7 @@
                                                 <td>@grade.Subject</td>
                                                 <td>@grade.Assignment</td>
                                                 <td><span class="badge bg-@GetGradeColor(grade.GradeValue)">@grade.GradeValue</span></td>
-                                                <td>@grade.Date.ToString("MM/dd")</td>
+                                                <td>@GetGradeDate(grade).ToString("MM/dd")</td>
                                             </tr>
                                         }
                                     </tbody>
@@ -140,13 +161,12 @@
                         }
                         else
                         {
-                            <p class="text-muted">No recent grades available.</p>
+                            <p class="text-muted mb-0">No recent grades available.</p>
                         }
                     </div>
                 </div>
             </div>
 
-            <!-- Assignments -->
             <div class="col-md-6">
                 <div class="card">
                     <div class="card-header">
@@ -181,258 +201,263 @@
                         }
                         else
                         {
-                            <p class="text-muted">No pending assignments.</p>
+                            <p class="text-muted mb-0">No pending assignments.</p>
                         }
                     </div>
                 </div>
             </div>
         </div>
     }
+</div>
 
-<!-- Add Student Modal -->
-@if (showAddModal)
+@if (showStudentModal)
 {
     <div class="modal fade show" style="display: block;" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Add New Student</h5>
-                    <button type="button" class="btn-close" @onclick="CloseAddStudentModal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">First Name</label>
-                                <input type="text" class="form-control" @bind="newStudent.FirstName" />
+                <EditForm Model="@studentForm" OnValidSubmit="SaveStudent">
+                    <DataAnnotationsValidator />
+                    <div class="modal-header">
+                        <h5 class="modal-title">@(isEditingStudent ? "Edit Student" : "Add New Student")</h5>
+                        <button type="button" class="btn-close" @onclick="CloseStudentModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ValidationSummary />
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="first-name">First Name</label>
+                                    <InputText id="first-name" class="form-control" @bind-Value="studentForm.FirstName" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="last-name">Last Name</label>
+                                    <InputText id="last-name" class="form-control" @bind-Value="studentForm.LastName" />
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Last Name</label>
-                                <input type="text" class="form-control" @bind="newStudent.LastName" />
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="email">Email</label>
+                                    <InputText id="email" type="email" class="form-control" @bind-Value="studentForm.Email" />
+                                </div>
                             </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="grade-level">Grade Level</label>
+                                    <InputSelect id="grade-level" class="form-select" @bind-Value="studentForm.GradeLevel">
+                                        <option value="">Select Grade</option>
+                                        @foreach (var grade in availableGradeLevels)
+                                        {
+                                            <option value="@grade">@grade Grade</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="date-of-birth">Date of Birth</label>
+                                    <InputDate id="date-of-birth" class="form-control" @bind-Value="studentForm.DateOfBirth" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="gpa">GPA</label>
+                                    <InputNumber id="gpa" class="form-control" @bind-Value="studentForm.GPA" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="total-credits">Total Credits</label>
+                            <InputNumber id="total-credits" class="form-control" @bind-Value="studentForm.TotalCredits" />
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Email</label>
-                                <input type="email" class="form-control" @bind="newStudent.Email" />
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Grade Level</label>
-                                <select class="form-select" @bind="newStudent.GradeLevel">
-                                    <option value="">Select Grade</option>
-                                    <option value="K">Kindergarten</option>
-                                    <option value="1st">1st Grade</option>
-                                    <option value="2nd">2nd Grade</option>
-                                    <option value="3rd">3rd Grade</option>
-                                    <option value="4th">4th Grade</option>
-                                    <option value="5th">5th Grade</option>
-                                    <option value="6th">6th Grade</option>
-                                    <option value="7th">7th Grade</option>
-                                    <option value="8th">8th Grade</option>
-                                    <option value="9th">9th Grade</option>
-                                    <option value="10th">10th Grade</option>
-                                    <option value="11th">11th Grade</option>
-                                    <option value="12th">12th Grade</option>
-                                </select>
-                            </div>
-                        </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseStudentModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">@(isEditingStudent ? "Save Changes" : "Add Student")</button>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Date of Birth</label>
-                                <input type="date" class="form-control" @bind="newStudent.DateOfBirth" />
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">GPA</label>
-                                <input type="number" step="0.1" min="0" max="4" class="form-control" @bind="newStudent.GPA" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseAddStudentModal">Cancel</button>
-                    <button type="button" class="btn btn-primary" @onclick="AddStudent">Add Student</button>
-                </div>
+                </EditForm>
             </div>
         </div>
     </div>
     <div class="modal-backdrop fade show"></div>
 }
-</div>
 
 @code {
+    private readonly List<string> availableGradeLevels = new()
+    {
+        "K", "1st", "2nd", "3rd", "4th", "5th", "6th",
+        "7th", "8th", "9th", "10th", "11th", "12th"
+    };
+
     private List<Student> students = new();
     private Student? selectedStudent;
     private List<Grade> selectedStudentGrades = new();
     private List<Assignment> selectedStudentAssignments = new();
-    
-    private bool showAddModal = false;
-    private Student newStudent = new();
+    private Student studentForm = CreateDefaultStudent();
+    private bool isLoading = true;
+    private bool showStudentModal;
+    private bool isEditingStudent;
+    private string? errorMessage;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // Initialize with sample data
-        students = new List<Student>
-        {
-            new() { 
-                Id = 1, 
-                FirstName = "Emma", 
-                LastName = "Johnson", 
-                Email = "emma@example.com", 
-                DateOfBirth = new DateTime(2014, 3, 15), 
-                GradeLevel = "5th", 
-                GPA = 3.8, 
-                TotalCredits = 24, 
-                EnrollmentDate = new DateTime(2020, 9, 1),
-                CreatedAt = DateTime.Now.AddDays(-30),
-                Courses = new List<Course>(),
-                Assignments = new List<Assignment>(),
-                Grades = new List<Grade>()
-            },
-            new() { 
-                Id = 2, 
-                FirstName = "Liam", 
-                LastName = "Smith", 
-                Email = "liam@example.com", 
-                DateOfBirth = new DateTime(2016, 7, 22), 
-                GradeLevel = "3rd", 
-                GPA = 3.6, 
-                TotalCredits = 18, 
-                EnrollmentDate = new DateTime(2021, 9, 1),
-                CreatedAt = DateTime.Now.AddDays(-25),
-                Courses = new List<Course>(),
-                Assignments = new List<Assignment>(),
-                Grades = new List<Grade>()
-            },
-            new() { 
-                Id = 3, 
-                FirstName = "Sophia", 
-                LastName = "Davis", 
-                Email = "sophia@example.com", 
-                DateOfBirth = new DateTime(2012, 11, 8), 
-                GradeLevel = "7th", 
-                GPA = 3.9, 
-                TotalCredits = 30, 
-                EnrollmentDate = new DateTime(2019, 9, 1),
-                CreatedAt = DateTime.Now.AddDays(-20),
-                Courses = new List<Course>(),
-                Assignments = new List<Assignment>(),
-                Grades = new List<Grade>()
-            }
-        };
+        await LoadStudentsAsync();
+    }
 
-        // Select first student by default
-        if (students.Any())
+    private async Task LoadStudentsAsync(int? preferredStudentId = null)
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
         {
-            SelectStudent(students.First());
+            students = (await StudentService.GetAllStudentsAsync()).ToList();
+            selectedStudent = preferredStudentId.HasValue
+                ? students.FirstOrDefault(s => s.Id == preferredStudentId.Value) ?? students.FirstOrDefault()
+                : selectedStudent == null ? students.FirstOrDefault() : students.FirstOrDefault(s => s.Id == selectedStudent.Id) ?? students.FirstOrDefault();
+
+            if (selectedStudent != null)
+            {
+                await LoadStudentDataAsync(selectedStudent.Id);
+            }
+            else
+            {
+                selectedStudentGrades.Clear();
+                selectedStudentAssignments.Clear();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
         }
     }
 
-    private void SelectStudent(Student student)
+    private async Task SelectStudent(Student student)
     {
         selectedStudent = student;
-        LoadStudentData(student);
+        await LoadStudentDataAsync(student.Id);
     }
 
-    private int CalculateAge(DateTime dateOfBirth)
+    private async Task LoadStudentDataAsync(int studentId)
     {
-        var today = DateTime.Today;
-        var age = today.Year - dateOfBirth.Year;
-        if (dateOfBirth.Date > today.AddYears(-age)) age--;
-        return age;
-    }
-
-    private void LoadStudentData(Student student)
-    {
-        // Load grades for selected student
-        selectedStudentGrades = new List<Grade>
-        {
-            new() { Subject = "Math", Assignment = "Fractions Test", GradeValue = "A", Date = DateTime.Now.AddDays(-2) },
-            new() { Subject = "Science", Assignment = "Experiment Report", GradeValue = "A-", Date = DateTime.Now.AddDays(-5) },
-            new() { Subject = "Language Arts", Assignment = "Book Report", GradeValue = "B+", Date = DateTime.Now.AddDays(-7) },
-            new() { Subject = "History", Assignment = "Timeline Project", GradeValue = "A", Date = DateTime.Now.AddDays(-10) }
-        };
-
-        // Load assignments for selected student
-        selectedStudentAssignments = new List<Assignment>
-        {
-            new() { Subject = "Math", Title = "Algebra Worksheet", DueDate = DateTime.Now.AddDays(2), Status = AssignmentStatus.Assigned },
-            new() { Subject = "Science", Title = "Lab Report", DueDate = DateTime.Now.AddDays(5), Status = AssignmentStatus.InProgress },
-            new() { Subject = "Language Arts", Title = "Essay", DueDate = DateTime.Now.AddDays(1), Status = AssignmentStatus.Assigned }
-        };
+        selectedStudent = await StudentService.GetStudentByIdAsync(studentId);
+        selectedStudentGrades = (await StudentService.GetStudentGradesAsync(studentId))
+            .OrderByDescending(GetGradeDate)
+            .ToList();
+        selectedStudentAssignments = (await StudentService.GetStudentAssignmentsAsync(studentId))
+            .Where(a => a.Status != AssignmentStatus.Completed)
+            .OrderBy(a => a.DueDate)
+            .ToList();
     }
 
     private void ShowAddStudentModal()
     {
-        newStudent = new Student { 
-            DateOfBirth = DateTime.Today.AddYears(-6),
-            GPA = 0.0,
-            TotalCredits = 0,
-            EnrollmentDate = DateTime.Today,
-            CreatedAt = DateTime.Now
-        };
-        showAddModal = true;
-    }
-
-    private void CloseAddStudentModal()
-    {
-        showAddModal = false;
-    }
-
-    private void AddStudent()
-    {
-        if (!string.IsNullOrEmpty(newStudent.FirstName) && !string.IsNullOrEmpty(newStudent.LastName))
-        {
-            newStudent.Id = students.Max(s => s.Id) + 1;
-            newStudent.EnrollmentDate = DateTime.Now;
-            newStudent.CreatedAt = DateTime.Now;
-            newStudent.Courses = new List<Course>();
-            newStudent.Assignments = new List<Assignment>();
-            newStudent.Grades = new List<Grade>();
-            students.Add(newStudent);
-            CloseAddStudentModal();
-        }
+        studentForm = CreateDefaultStudent();
+        isEditingStudent = false;
+        showStudentModal = true;
     }
 
     private void ShowEditStudentModal(Student student)
     {
-        // Implementation for editing student
+        studentForm = CloneStudent(student);
+        isEditingStudent = true;
+        showStudentModal = true;
     }
 
-    private void DeleteStudent(Student student)
+    private void CloseStudentModal()
     {
-        students.Remove(student);
-        if (selectedStudent?.Id == student.Id)
-        {
-            selectedStudent = students.FirstOrDefault();
-            if (selectedStudent != null)
-            {
-                LoadStudentData(selectedStudent);
-            }
-        }
+        showStudentModal = false;
     }
 
-    private string GetGradeColor(string grade)
+    private async Task SaveStudent()
+    {
+        var savedStudent = isEditingStudent
+            ? await StudentService.UpdateStudentAsync(studentForm)
+            : await StudentService.CreateStudentAsync(studentForm);
+
+        showStudentModal = false;
+        await LoadStudentsAsync(savedStudent.Id);
+    }
+
+    private async Task DeleteStudent(Student student)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete {student.FirstName} {student.LastName}? This will also remove their assignments and grades.");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await StudentService.DeleteStudentAsync(student.Id);
+        selectedStudent = null;
+        await LoadStudentsAsync();
+    }
+
+    private static Student CreateDefaultStudent()
+    {
+        return new Student
+        {
+            DateOfBirth = DateTime.Today.AddYears(-6),
+            EnrollmentDate = DateTime.Today,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    private static Student CloneStudent(Student student)
+    {
+        return new Student
+        {
+            Id = student.Id,
+            FirstName = student.FirstName,
+            LastName = student.LastName,
+            Email = student.Email,
+            DateOfBirth = student.DateOfBirth,
+            GradeLevel = student.GradeLevel,
+            GPA = student.GPA,
+            TotalCredits = student.TotalCredits,
+            EnrollmentDate = student.EnrollmentDate,
+            CreatedAt = student.CreatedAt,
+            UpdatedAt = student.UpdatedAt
+        };
+    }
+
+    private static int CalculateAge(DateTime dateOfBirth)
+    {
+        var today = DateTime.Today;
+        var age = today.Year - dateOfBirth.Year;
+        if (dateOfBirth.Date > today.AddYears(-age))
+        {
+            age--;
+        }
+
+        return age;
+    }
+
+    private static DateTime GetGradeDate(Grade grade)
+    {
+        return grade.Date == default ? grade.GradedDate : grade.Date;
+    }
+
+    private static string GetGradeColor(string grade)
     {
         return grade switch
         {
-            "A" or "A+" => "success",
-            "B" or "B+" => "info",
-            "C" or "C+" => "warning",
+            "A" or "A+" or "A-" => "success",
+            "B" or "B+" or "B-" => "info",
+            "C" or "C+" or "C-" => "warning",
             _ => "danger"
         };
     }
 
-    private string GetStatusColor(AssignmentStatus status)
+    private static string GetStatusColor(AssignmentStatus status)
     {
         return status switch
         {
@@ -443,5 +468,4 @@
             _ => "secondary"
         };
     }
-
-} 
+}

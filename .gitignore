@@ -61,6 +61,9 @@ artifacts/
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 
+# Local application data
+App_Data/
+
 # StyleCop
 StyleCopReport.xml
 
@@ -369,4 +372,4 @@ FodyWeavers.xsd
 # Windows
 Thumbs.db
 ehthumbs.db
-Desktop.ini 
+Desktop.ini

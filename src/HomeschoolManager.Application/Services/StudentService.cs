@@ -53,7 +53,7 @@ public class StudentService : IStudentService
 
     public async Task<IEnumerable<Grade>> GetStudentGradesAsync(int studentId)
     {
-        var student = await _studentRepository.GetByIdAsync(studentId);
+        var student = await _studentRepository.GetWithGradesAsync(studentId);
         return student?.Grades ?? new List<Grade>();
     }
-} 
+}

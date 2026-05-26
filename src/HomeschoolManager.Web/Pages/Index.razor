@@ -1,70 +1,180 @@
 @page "/"
-@using Microsoft.AspNetCore.Components
-@using Microsoft.AspNetCore.Components.Web
+@using HomeschoolManager.Application.Services
+@using HomeschoolManager.Core.Entities
+@inject IStudentService StudentService
+@inject ICourseService CourseService
+@inject IAssignmentService AssignmentService
 
 <PageTitle>Dashboard - Homeschool Manager</PageTitle>
 
 <div class="container-fluid">
-    <h1>Homeschool Dashboard</h1>
-    
-    <div class="row">
-        <div class="col-md-2">
-            <div class="card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="mb-1">Homeschool Dashboard</h1>
+            <p class="text-muted mb-0">Today&apos;s snapshot across students, courses, and open work.</p>
+        </div>
+        <a href="teach" class="btn btn-success">
+            <span class="oi oi-play-circle"></span> Start Teaching
+        </a>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    <div class="row g-3">
+        <div class="col-md-3">
+            <div class="card h-100">
                 <div class="card-body">
                     <h5 class="card-title">Students</h5>
-                    <p class="card-text">Manage your homeschool students</p>
-                    <a href="students" class="btn btn-primary">View Students</a>
+                    <p class="display-6 mb-2">@students.Count</p>
+                    <a href="students" class="btn btn-outline-primary btn-sm">Manage Students</a>
                 </div>
             </div>
         </div>
-        
-        <div class="col-md-2">
-            <div class="card">
+        <div class="col-md-3">
+            <div class="card h-100">
                 <div class="card-body">
-                    <h5 class="card-title">Courses</h5>
-                    <p class="card-text">Organize your curriculum</p>
-                    <a href="courses" class="btn btn-primary">View Courses</a>
+                    <h5 class="card-title">Active Courses</h5>
+                    <p class="display-6 mb-2">@courses.Count(c => c.IsActive)</p>
+                    <a href="courses" class="btn btn-outline-primary btn-sm">View Courses</a>
                 </div>
             </div>
         </div>
-        
-        <div class="col-md-2">
-            <div class="card">
+        <div class="col-md-3">
+            <div class="card h-100">
                 <div class="card-body">
-                    <h5 class="card-title">Assignments</h5>
-                    <p class="card-text">Track homework and projects</p>
-                    <a href="assignments" class="btn btn-primary">View Assignments</a>
+                    <h5 class="card-title">Open Assignments</h5>
+                    <p class="display-6 mb-2">@openAssignments.Count</p>
+                    <a href="assignments" class="btn btn-outline-primary btn-sm">Track Work</a>
                 </div>
             </div>
         </div>
-        
-        <div class="col-md-2">
-            <div class="card">
+        <div class="col-md-3">
+            <div class="card h-100">
                 <div class="card-body">
-                    <h5 class="card-title">Resources</h5>
-                    <p class="card-text">Access teaching materials and tools</p>
-                    <a href="resources" class="btn btn-primary">View Resources</a>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-2">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Teach</h5>
-                    <p class="card-text">Track teaching time and grade assignments</p>
-                    <a href="teach" class="btn btn-success">Start Teaching</a>
+                    <h5 class="card-title">Overdue</h5>
+                    <p class="display-6 mb-2 text-danger">@overdueAssignments.Count</p>
+                    <a href="assignments" class="btn btn-outline-danger btn-sm">Review Overdue</a>
                 </div>
             </div>
         </div>
     </div>
-    
+
     <div class="row mt-4">
-        <div class="col-12">
-            <div class="alert alert-info">
-                <h4>Welcome to Homeschool Manager</h4>
-                <p>This application helps you manage your homeschool curriculum, track student progress, and organize assignments.</p>
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Upcoming Assignments</h5>
+                </div>
+                <div class="card-body">
+                    @if (upcomingAssignments.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Student</th>
+                                        <th>Assignment</th>
+                                        <th>Subject</th>
+                                        <th>Due</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var assignment in upcomingAssignments)
+                                    {
+                                        <tr>
+                                            <td>@GetStudentName(assignment.StudentId)</td>
+                                            <td>@assignment.Title</td>
+                                            <td>@assignment.Subject</td>
+                                            <td>@assignment.DueDate.ToString("MM/dd/yyyy")</td>
+                                            <td><span class="badge bg-@GetStatusColor(assignment.Status)">@assignment.Status</span></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0">No open assignments are due soon.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="students" class="btn btn-outline-primary">
+                            <span class="oi oi-people"></span> Add or Edit Student
+                        </a>
+                        <a href="courses" class="btn btn-outline-primary">
+                            <span class="oi oi-book"></span> Plan Course
+                        </a>
+                        <a href="assignments" class="btn btn-outline-primary">
+                            <span class="oi oi-task"></span> Add Assignment
+                        </a>
+                        <a href="resources" class="btn btn-outline-secondary">
+                            <span class="oi oi-folder"></span> Open Resources
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-</div> 
+</div>
+
+@code {
+    private List<Student> students = new();
+    private List<Course> courses = new();
+    private List<Assignment> openAssignments = new();
+    private List<Assignment> overdueAssignments = new();
+    private List<Assignment> upcomingAssignments = new();
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            students = (await StudentService.GetAllStudentsAsync()).ToList();
+            courses = (await CourseService.GetAllCoursesAsync()).ToList();
+            openAssignments = (await AssignmentService.GetOpenAssignmentsAsync()).ToList();
+            overdueAssignments = openAssignments
+                .Where(a => a.DueDate.Date < DateTime.Today)
+                .ToList();
+            upcomingAssignments = openAssignments
+                .OrderBy(a => a.DueDate)
+                .Take(6)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private string GetStudentName(int studentId)
+    {
+        var student = students.FirstOrDefault(s => s.Id == studentId);
+        return student == null ? "Unknown student" : $"{student.FirstName} {student.LastName}";
+    }
+
+    private static string GetStatusColor(AssignmentStatus status)
+    {
+        return status switch
+        {
+            AssignmentStatus.Completed => "success",
+            AssignmentStatus.InProgress => "warning",
+            AssignmentStatus.Assigned => "secondary",
+            AssignmentStatus.Overdue => "danger",
+            _ => "secondary"
+        };
+    }
+}

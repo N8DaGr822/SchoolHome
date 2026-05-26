@@ -1,13 +1,27 @@
 @page "/courses"
-@using Microsoft.AspNetCore.Components
+@using HomeschoolManager.Application.Services
 @using HomeschoolManager.Core.Entities
+@inject ICourseService CourseService
+@inject IJSRuntime JS
 
 <PageTitle>Courses - Homeschool Manager</PageTitle>
 
 <div class="container-fluid">
-    <h1>Course Management</h1>
-    
-    <!-- Search and Filter Controls -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="mb-1">Course Management</h1>
+            <p class="text-muted mb-0">Organize curriculum, lesson plans, and course activity.</p>
+        </div>
+        <button class="btn btn-primary" @onclick="ShowAddCourseModal">
+            <span class="oi oi-plus"></span> Add Course
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
     <div class="row mb-4">
         <div class="col-md-8">
             <div class="input-group">
@@ -37,10 +51,9 @@
         </div>
     </div>
 
-    <!-- Sort Controls -->
     <div class="row mb-3">
         <div class="col-12">
-            <div class="btn-group" role="group">
+            <div class="btn-group" role="group" aria-label="Sort courses">
                 <button type="button" class="btn btn-outline-secondary @(sortBy == "Name" ? "active" : "")" @onclick="SortByName">
                     <span class="oi oi-sort-ascending"></span> Name
                 </button>
@@ -54,50 +67,55 @@
                     <span class="oi oi-sort-ascending"></span> Start Date
                 </button>
             </div>
-            <button type="button" class="btn btn-outline-secondary ms-2" @onclick="ToggleSortDirection">
+            <button type="button" class="btn btn-outline-secondary ms-2" @onclick="ToggleSortDirection" title="Toggle sort direction">
                 <span class="oi @(sortDirection == "asc" ? "oi-sort-ascending" : "oi-sort-descending")"></span>
             </button>
         </div>
     </div>
 
-    <!-- Course List -->
     <div class="row">
         <div class="col-md-4">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Courses (@filteredCourses.Count())</h5>
-                    <button class="btn btn-primary btn-sm" @onclick="ShowAddCourseModal">
-                        <span class="oi oi-plus"></span> Add Course
-                    </button>
                 </div>
                 <div class="card-body p-0">
-                    <div class="list-group list-group-flush">
-                        @foreach (var course in filteredCourses)
-                        {
-                            <button class="list-group-item list-group-item-action @(selectedCourse?.Id == course.Id ? "active" : "")" 
-                                    @onclick="() => SelectCourse(course)">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">@course.Name</h6>
-                                    <small class="badge bg-@(course.IsActive ? "success" : "secondary")">@(course.IsActive ? "Active" : "Inactive")</small>
-                                </div>
-                                <p class="mb-1">@course.Subject - @course.GradeLevel</p>
-                                <small class="text-muted">
-                                    @course.LessonPlans.Count lesson plans • 
-                                    @course.Assignments.Count assignments
-                                </small>
-                            </button>
-                        }
-                    </div>
+                    @if (isLoading)
+                    {
+                        <p class="text-muted p-3 mb-0">Loading courses...</p>
+                    }
+                    else if (filteredCourses.Any())
+                    {
+                        <div class="list-group list-group-flush">
+                            @foreach (var course in filteredCourses)
+                            {
+                                <button class="list-group-item list-group-item-action @(selectedCourse?.Id == course.Id ? "active" : "")"
+                                        @onclick="() => SelectCourse(course)">
+                                    <div class="d-flex w-100 justify-content-between gap-2">
+                                        <h6 class="mb-1">@course.Name</h6>
+                                        <small class="badge bg-@(course.IsActive ? "success" : "secondary")">@(course.IsActive ? "Active" : "Inactive")</small>
+                                    </div>
+                                    <p class="mb-1">@course.Subject - @course.GradeLevel</p>
+                                    <small class="@(selectedCourse?.Id == course.Id ? "text-white-50" : "text-muted")">
+                                        @course.LessonPlans.Count lesson plans / @course.Assignments.Count assignments
+                                    </small>
+                                </button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="p-3 text-muted">No courses match the current filters.</div>
+                    }
                 </div>
             </div>
         </div>
 
-        <!-- Course Details -->
         <div class="col-md-8">
             @if (selectedCourse != null)
             {
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <h5 class="mb-0">@selectedCourse.Name</h5>
                         <div>
                             <button class="btn btn-warning btn-sm me-2" @onclick="() => ShowEditCourseModal(selectedCourse)">
@@ -126,19 +144,16 @@
                                 <p><strong>Created:</strong> @selectedCourse.CreatedAt.ToString("MM/dd/yyyy")</p>
                             </div>
                         </div>
-                        
+
                         <hr />
-                        
-                        <div class="mb-3">
-                            <h6>Description</h6>
-                            <p class="text-muted">@selectedCourse.Description</p>
-                        </div>
+
+                        <h6>Description</h6>
+                        <p class="text-muted mb-0">@(string.IsNullOrWhiteSpace(selectedCourse.Description) ? "No description provided." : selectedCourse.Description)</p>
                     </div>
                 </div>
 
-                <!-- Lesson Plans Section -->
                 <div class="card mt-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <h5 class="mb-0">Lesson Plans</h5>
                         <button class="btn btn-primary btn-sm" @onclick="ShowAddLessonPlanModal">
                             <span class="oi oi-plus"></span> Add Lesson Plan
@@ -152,24 +167,15 @@
                                 {
                                     <div class="col-md-6 mb-3">
                                         <div class="card h-100">
-                                            <div class="card-header d-flex justify-content-between align-items-center">
+                                            <div class="card-header d-flex justify-content-between align-items-center gap-2">
                                                 <h6 class="mb-0">@lessonPlan.Title</h6>
                                                 <small class="text-muted">Week @lessonPlan.WeekNumber, Day @lessonPlan.DayNumber</small>
                                             </div>
                                             <div class="card-body">
                                                 <p class="card-text">@lessonPlan.Description</p>
-                                                <div class="row">
-                                                    <div class="col-6">
-                                                        <small class="text-muted">
-                                                            <strong>Duration:</strong> @lessonPlan.DurationMinutes min
-                                                        </small>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <small class="text-muted">
-                                                            <strong>Objectives:</strong> @lessonPlan.Objectives.Split('\n').FirstOrDefault()?.Trim()
-                                                        </small>
-                                                    </div>
-                                                </div>
+                                                <small class="text-muted">
+                                                    <strong>Duration:</strong> @lessonPlan.DurationMinutes min
+                                                </small>
                                             </div>
                                             <div class="card-footer">
                                                 <div class="btn-group btn-group-sm" role="group">
@@ -179,7 +185,7 @@
                                                     <button class="btn btn-outline-warning btn-sm" @onclick="() => EditLessonPlan(lessonPlan)">
                                                         <span class="oi oi-pencil"></span> Edit
                                                     </button>
-                                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteLessonPlan(lessonPlan)">
+                                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteLessonPlan(lessonPlan)" title="Delete lesson plan">
                                                         <span class="oi oi-trash"></span>
                                                     </button>
                                                 </div>
@@ -191,7 +197,7 @@
                         }
                         else
                         {
-                            <p class="text-muted text-center">No lesson plans available. Click "Add Lesson Plan" to get started.</p>
+                            <p class="text-muted text-center mb-0">No lesson plans available.</p>
                         }
                     </div>
                 </div>
@@ -201,7 +207,7 @@
                 <div class="card">
                     <div class="card-body text-center">
                         <h5 class="text-muted">Select a Course</h5>
-                        <p class="text-muted">Choose a course from the list to view its details and lesson plans</p>
+                        <p class="text-muted mb-0">Choose a course from the list to view its details and lesson plans.</p>
                     </div>
                 </div>
             }
@@ -209,135 +215,183 @@
     </div>
 </div>
 
-<!-- Add Course Modal -->
-@if (showAddCourseModal)
+@if (showCourseModal)
 {
     <div class="modal fade show" style="display: block;" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Add New Course</h5>
-                    <button type="button" class="btn-close" @onclick="CloseAddCourseModal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Course Name</label>
-                        <input type="text" class="form-control" @bind="newCourse.Name" />
+                <EditForm Model="@courseForm" OnValidSubmit="SaveCourse">
+                    <DataAnnotationsValidator />
+                    <div class="modal-header">
+                        <h5 class="modal-title">@(isEditingCourse ? "Edit Course" : "Add New Course")</h5>
+                        <button type="button" class="btn-close" @onclick="CloseCourseModal"></button>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-control" rows="3" @bind="newCourse.Description"></textarea>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Subject</label>
-                                <select class="form-select" @bind="newCourse.Subject">
-                                    <option value="">Select Subject</option>
-                                    @foreach (var subject in availableSubjects)
-                                    {
-                                        <option value="@subject">@subject</option>
-                                    }
-                                </select>
+                    <div class="modal-body">
+                        <ValidationSummary />
+                        <div class="mb-3">
+                            <label class="form-label" for="course-name">Course Name</label>
+                            <InputText id="course-name" class="form-control" @bind-Value="courseForm.Name" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="course-description">Description</label>
+                            <InputTextArea id="course-description" class="form-control" rows="3" @bind-Value="courseForm.Description" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="subject">Subject</label>
+                                    <InputSelect id="subject" class="form-select" @bind-Value="courseForm.Subject">
+                                        <option value="">Select Subject</option>
+                                        @foreach (var subject in availableSubjects)
+                                        {
+                                            <option value="@subject">@subject</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="course-grade">Grade Level</label>
+                                    <InputSelect id="course-grade" class="form-select" @bind-Value="courseForm.GradeLevel">
+                                        <option value="">Select Grade</option>
+                                        @foreach (var grade in availableGradeLevels)
+                                        {
+                                            <option value="@grade">@grade</option>
+                                        }
+                                    </InputSelect>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Grade Level</label>
-                                <select class="form-select" @bind="newCourse.GradeLevel">
-                                    <option value="">Select Grade</option>
-                                    @foreach (var grade in availableGradeLevels)
-                                    {
-                                        <option value="@grade">@grade</option>
-                                    }
-                                </select>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="start-date">Start Date</label>
+                                    <InputDate id="start-date" class="form-control" @bind-Value="courseForm.StartDate" />
+                                </div>
                             </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="end-date">End Date</label>
+                                    <InputDate id="end-date" class="form-control" @bind-Value="courseForm.EndDate" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-check">
+                            <InputCheckbox id="is-active" class="form-check-input" @bind-Value="courseForm.IsActive" />
+                            <label class="form-check-label" for="is-active">Active course</label>
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Start Date</label>
-                                <input type="date" class="form-control" @bind="newCourse.StartDate" />
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">End Date (Optional)</label>
-                                <input type="date" class="form-control" @bind="newCourse.EndDate" />
-                            </div>
-                        </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseCourseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">@(isEditingCourse ? "Save Changes" : "Add Course")</button>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseAddCourseModal">Cancel</button>
-                    <button type="button" class="btn btn-primary" @onclick="AddCourse">Add Course</button>
-                </div>
+                </EditForm>
             </div>
         </div>
     </div>
     <div class="modal-backdrop fade show"></div>
 }
 
-<!-- Add Lesson Plan Modal -->
-@if (showAddLessonPlanModal)
+@if (showLessonPlanModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <EditForm Model="@lessonPlanForm" OnValidSubmit="SaveLessonPlan">
+                    <DataAnnotationsValidator />
+                    <div class="modal-header">
+                        <h5 class="modal-title">@(isEditingLessonPlan ? "Edit Lesson Plan" : "Add Lesson Plan")</h5>
+                        <button type="button" class="btn-close" @onclick="CloseLessonPlanModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ValidationSummary />
+                        <div class="mb-3">
+                            <label class="form-label" for="lesson-title">Lesson Title</label>
+                            <InputText id="lesson-title" class="form-control" @bind-Value="lessonPlanForm.Title" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="lesson-description">Description</label>
+                            <InputTextArea id="lesson-description" class="form-control" rows="3" @bind-Value="lessonPlanForm.Description" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="week-number">Week Number</label>
+                                    <InputNumber id="week-number" class="form-control" @bind-Value="lessonPlanForm.WeekNumber" />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="day-number">Day Number</label>
+                                    <InputNumber id="day-number" class="form-control" @bind-Value="lessonPlanForm.DayNumber" />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="duration">Duration (minutes)</label>
+                                    <InputNumber id="duration" class="form-control" @bind-Value="lessonPlanForm.DurationMinutes" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="objectives">Learning Objectives</label>
+                            <InputTextArea id="objectives" class="form-control" rows="3" @bind-Value="lessonPlanForm.Objectives" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="materials">Materials Needed</label>
+                            <InputTextArea id="materials" class="form-control" rows="2" @bind-Value="lessonPlanForm.Materials" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="activities">Activities</label>
+                            <InputTextArea id="activities" class="form-control" rows="3" @bind-Value="lessonPlanForm.Activities" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="assessment">Assessment</label>
+                            <InputTextArea id="assessment" class="form-control" rows="2" @bind-Value="lessonPlanForm.Assessment" />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseLessonPlanModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">@(isEditingLessonPlan ? "Save Changes" : "Add Lesson Plan")</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@if (viewingLessonPlan != null)
 {
     <div class="modal fade show" style="display: block;" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Add New Lesson Plan</h5>
-                    <button type="button" class="btn-close" @onclick="CloseAddLessonPlanModal"></button>
+                    <h5 class="modal-title">@viewingLessonPlan.Title</h5>
+                    <button type="button" class="btn-close" @onclick="CloseViewLessonPlanModal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Lesson Title</label>
-                        <input type="text" class="form-control" @bind="newLessonPlan.Title" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Description</label>
-                        <textarea class="form-control" rows="3" @bind="newLessonPlan.Description"></textarea>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">Week Number</label>
-                                <input type="number" class="form-control" @bind="newLessonPlan.WeekNumber" />
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">Day Number</label>
-                                <input type="number" class="form-control" @bind="newLessonPlan.DayNumber" />
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label">Duration (minutes)</label>
-                                <input type="number" class="form-control" @bind="newLessonPlan.DurationMinutes" />
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Learning Objectives</label>
-                        <textarea class="form-control" rows="3" @bind="newLessonPlan.Objectives" placeholder="What will students learn?"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Materials Needed</label>
-                        <textarea class="form-control" rows="2" @bind="newLessonPlan.Materials" placeholder="Books, supplies, etc."></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Activities</label>
-                        <textarea class="form-control" rows="3" @bind="newLessonPlan.Activities" placeholder="Step-by-step activities"></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Assessment</label>
-                        <textarea class="form-control" rows="2" @bind="newLessonPlan.Assessment" placeholder="How will you evaluate learning?"></textarea>
-                    </div>
+                    <p>@viewingLessonPlan.Description</p>
+                    <dl class="row">
+                        <dt class="col-sm-3">Schedule</dt>
+                        <dd class="col-sm-9">Week @viewingLessonPlan.WeekNumber, Day @viewingLessonPlan.DayNumber</dd>
+                        <dt class="col-sm-3">Duration</dt>
+                        <dd class="col-sm-9">@viewingLessonPlan.DurationMinutes minutes</dd>
+                        <dt class="col-sm-3">Objectives</dt>
+                        <dd class="col-sm-9">@viewingLessonPlan.Objectives</dd>
+                        <dt class="col-sm-3">Materials</dt>
+                        <dd class="col-sm-9">@viewingLessonPlan.Materials</dd>
+                        <dt class="col-sm-3">Activities</dt>
+                        <dd class="col-sm-9">@viewingLessonPlan.Activities</dd>
+                        <dt class="col-sm-3">Assessment</dt>
+                        <dd class="col-sm-9">@viewingLessonPlan.Assessment</dd>
+                    </dl>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CloseAddLessonPlanModal">Cancel</button>
-                    <button type="button" class="btn btn-primary" @onclick="AddLessonPlan">Add Lesson Plan</button>
+                    <button type="button" class="btn btn-secondary" @onclick="CloseViewLessonPlanModal">Close</button>
+                    <button type="button" class="btn btn-warning" @onclick="() => EditLessonPlan(viewingLessonPlan)">
+                        <span class="oi oi-pencil"></span> Edit
+                    </button>
                 </div>
             </div>
         </div>
@@ -346,107 +400,70 @@
 }
 
 @code {
+    private readonly List<string> availableSubjects = new()
+    {
+        "Math", "Science", "Language Arts", "History", "Geography",
+        "Art", "Music", "Physical Education", "Computer Science"
+    };
+
+    private readonly List<string> availableGradeLevels = new()
+    {
+        "K", "1st", "2nd", "3rd", "4th", "5th", "6th",
+        "7th", "8th", "9th", "10th", "11th", "12th"
+    };
+
     private List<Course> courses = new();
     private Course? selectedCourse;
+    private Course courseForm = CreateDefaultCourse();
+    private LessonPlan lessonPlanForm = CreateDefaultLessonPlan();
+    private LessonPlan? viewingLessonPlan;
     private string searchTerm = "";
     private string selectedSubject = "";
     private string selectedGradeLevel = "";
     private string sortBy = "Name";
     private string sortDirection = "asc";
-    
-    private bool showAddCourseModal = false;
-    private bool showAddLessonPlanModal = false;
-    private Course newCourse = new();
-    private LessonPlan newLessonPlan = new();
+    private bool isLoading = true;
+    private bool showCourseModal;
+    private bool showLessonPlanModal;
+    private bool isEditingCourse;
+    private bool isEditingLessonPlan;
+    private string? errorMessage;
 
-    private List<string> availableSubjects = new() { "Math", "Science", "Language Arts", "History", "Geography", "Art", "Music", "Physical Education", "Computer Science" };
-    private List<string> availableGradeLevels = new() { "K", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th" };
+    private IEnumerable<Course> filteredCourses => SortCourses(
+        courses
+            .Where(c => string.IsNullOrWhiteSpace(searchTerm)
+                || c.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+                || c.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)
+                || c.Subject.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .Where(c => string.IsNullOrWhiteSpace(selectedSubject) || c.Subject == selectedSubject)
+            .Where(c => string.IsNullOrWhiteSpace(selectedGradeLevel) || c.GradeLevel == selectedGradeLevel));
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        // Initialize with sample data
-        courses = new List<Course>
-        {
-            new() { 
-                Id = 1, 
-                Name = "Algebra Fundamentals", 
-                Description = "Introduction to algebraic concepts and problem-solving strategies.", 
-                Subject = "Math", 
-                GradeLevel = "8th", 
-                StartDate = new DateTime(2024, 9, 1), 
-                EndDate = new DateTime(2025, 6, 15), 
-                IsActive = true, 
-                CreatedAt = DateTime.Now.AddDays(-30),
-                LessonPlans = new List<LessonPlan>
-                {
-                    new() { Id = 1, Title = "Introduction to Variables", Description = "Understanding variables and expressions", Objectives = "Students will identify variables and write simple expressions", Materials = "Whiteboard, markers, worksheets", Activities = "1. Review number concepts\n2. Introduce variables\n3. Practice problems", Assessment = "Worksheet completion", DurationMinutes = 45, WeekNumber = 1, DayNumber = 1, CourseId = 1 },
-                    new() { Id = 2, Title = "Solving Linear Equations", Description = "Basic equation solving techniques", Objectives = "Students will solve simple linear equations", Materials = "Calculator, practice sheets", Activities = "1. Review variables\n2. Solve equations step by step\n3. Group practice", Assessment = "Quiz on equation solving", DurationMinutes = 60, WeekNumber = 1, DayNumber = 2, CourseId = 1 }
-                }
-            },
-            new() { 
-                Id = 2, 
-                Name = "World History: Ancient Civilizations", 
-                Description = "Exploration of ancient civilizations and their impact on modern society.", 
-                Subject = "History", 
-                GradeLevel = "6th", 
-                StartDate = new DateTime(2024, 9, 1), 
-                EndDate = new DateTime(2025, 6, 15), 
-                IsActive = true, 
-                CreatedAt = DateTime.Now.AddDays(-25),
-                LessonPlans = new List<LessonPlan>
-                {
-                    new() { Id = 3, Title = "Introduction to Ancient Egypt", Description = "Overview of Egyptian civilization", Objectives = "Students will understand Egyptian geography and culture", Materials = "Maps, images, videos", Activities = "1. Map exploration\n2. Video presentation\n3. Discussion", Assessment = "Written summary", DurationMinutes = 50, WeekNumber = 1, DayNumber = 1, CourseId = 2 }
-                }
-            },
-            new() { 
-                Id = 3, 
-                Name = "Creative Writing Workshop", 
-                Description = "Developing writing skills through creative expression and storytelling.", 
-                Subject = "Language Arts", 
-                GradeLevel = "7th", 
-                StartDate = new DateTime(2024, 9, 1), 
-                EndDate = null, 
-                IsActive = true, 
-                CreatedAt = DateTime.Now.AddDays(-20),
-                LessonPlans = new List<LessonPlan>()
-            },
-            new() { 
-                Id = 4, 
-                Name = "Biology: Cell Structure", 
-                Description = "Study of cell biology and microscopic organisms.", 
-                Subject = "Science", 
-                GradeLevel = "9th", 
-                StartDate = new DateTime(2024, 9, 1), 
-                EndDate = new DateTime(2025, 1, 15), 
-                IsActive = false, 
-                CreatedAt = DateTime.Now.AddDays(-60),
-                LessonPlans = new List<LessonPlan>()
-            }
-        };
-
-        // Select first course by default
-        if (courses.Any())
-        {
-            SelectCourse(courses.First());
-        }
+        await LoadCoursesAsync();
     }
 
-    private IEnumerable<Course> filteredCourses => courses
-        .Where(c => string.IsNullOrEmpty(searchTerm) || 
-                   c.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                   c.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-                   c.Subject.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
-        .Where(c => string.IsNullOrEmpty(selectedSubject) || c.Subject == selectedSubject)
-        .Where(c => string.IsNullOrEmpty(selectedGradeLevel) || c.GradeLevel == selectedGradeLevel)
-        .OrderBy(c => sortBy switch
+    private async Task LoadCoursesAsync(int? preferredCourseId = null)
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
         {
-            "Name" => c.Name,
-            "Subject" => c.Subject,
-            "GradeLevel" => c.GradeLevel,
-            "StartDate" => c.StartDate.ToString(),
-            _ => c.Name
-        })
-        .ThenBy(c => sortDirection == "asc" ? c.Name : c.Name);
+            courses = (await CourseService.GetAllCoursesAsync()).ToList();
+            selectedCourse = preferredCourseId.HasValue
+                ? courses.FirstOrDefault(c => c.Id == preferredCourseId.Value) ?? courses.FirstOrDefault()
+                : selectedCourse == null ? courses.FirstOrDefault() : courses.FirstOrDefault(c => c.Id == selectedCourse.Id) ?? courses.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
 
     private void SelectCourse(Course course)
     {
@@ -462,13 +479,12 @@
     {
         if (sortBy == field)
         {
-            sortDirection = sortDirection == "asc" ? "desc" : "asc";
+            ToggleSortDirection();
+            return;
         }
-        else
-        {
-            sortBy = field;
-            sortDirection = "asc";
-        }
+
+        sortBy = field;
+        sortDirection = "asc";
     }
 
     private void ToggleSortDirection()
@@ -476,86 +492,200 @@
         sortDirection = sortDirection == "asc" ? "desc" : "asc";
     }
 
+    private IEnumerable<Course> SortCourses(IEnumerable<Course> query)
+    {
+        return (sortBy, sortDirection) switch
+        {
+            ("Subject", "desc") => query.OrderByDescending(c => c.Subject).ThenBy(c => c.Name),
+            ("Subject", _) => query.OrderBy(c => c.Subject).ThenBy(c => c.Name),
+            ("GradeLevel", "desc") => query.OrderByDescending(c => c.GradeLevel).ThenBy(c => c.Name),
+            ("GradeLevel", _) => query.OrderBy(c => c.GradeLevel).ThenBy(c => c.Name),
+            ("StartDate", "desc") => query.OrderByDescending(c => c.StartDate).ThenBy(c => c.Name),
+            ("StartDate", _) => query.OrderBy(c => c.StartDate).ThenBy(c => c.Name),
+            ("Name", "desc") => query.OrderByDescending(c => c.Name),
+            _ => query.OrderBy(c => c.Name)
+        };
+    }
+
     private void ShowAddCourseModal()
     {
-        newCourse = new Course { StartDate = DateTime.Today };
-        showAddCourseModal = true;
-    }
-
-    private void CloseAddCourseModal()
-    {
-        showAddCourseModal = false;
-    }
-
-    private void AddCourse()
-    {
-        if (!string.IsNullOrEmpty(newCourse.Name))
-        {
-            newCourse.Id = courses.Max(c => c.Id) + 1;
-            newCourse.CreatedAt = DateTime.Now;
-            newCourse.LessonPlans = new List<LessonPlan>();
-            newCourse.Assignments = new List<Assignment>();
-            newCourse.Students = new List<Student>();
-            courses.Add(newCourse);
-            CloseAddCourseModal();
-        }
+        courseForm = CreateDefaultCourse();
+        isEditingCourse = false;
+        showCourseModal = true;
     }
 
     private void ShowEditCourseModal(Course course)
     {
-        // Implementation for editing course
+        courseForm = CloneCourse(course);
+        isEditingCourse = true;
+        showCourseModal = true;
     }
 
-    private void DeleteCourse(Course course)
+    private void CloseCourseModal()
     {
-        courses.Remove(course);
-        if (selectedCourse?.Id == course.Id)
+        showCourseModal = false;
+    }
+
+    private async Task SaveCourse()
+    {
+        var savedCourse = isEditingCourse
+            ? await CourseService.UpdateCourseAsync(courseForm)
+            : await CourseService.CreateCourseAsync(courseForm);
+
+        showCourseModal = false;
+        await LoadCoursesAsync(savedCourse.Id);
+    }
+
+    private async Task DeleteCourse(Course course)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete {course.Name}? This will also remove its assignments.");
+        if (!confirmed)
         {
-            selectedCourse = courses.FirstOrDefault();
+            return;
         }
+
+        await CourseService.DeleteCourseAsync(course.Id);
+        selectedCourse = null;
+        await LoadCoursesAsync();
     }
 
     private void ShowAddLessonPlanModal()
     {
-        if (selectedCourse != null)
+        if (selectedCourse == null)
         {
-            newLessonPlan = new LessonPlan { CourseId = selectedCourse.Id };
-            showAddLessonPlanModal = true;
+            return;
         }
+
+        var nextDay = selectedCourse.LessonPlans.Count > 0
+            ? selectedCourse.LessonPlans.Max(lp => lp.DayNumber) + 1
+            : 1;
+
+        lessonPlanForm = CreateDefaultLessonPlan();
+        lessonPlanForm.CourseId = selectedCourse.Id;
+        lessonPlanForm.DayNumber = Math.Min(nextDay, 7);
+        isEditingLessonPlan = false;
+        showLessonPlanModal = true;
     }
 
-    private void CloseAddLessonPlanModal()
+    private void CloseLessonPlanModal()
     {
-        showAddLessonPlanModal = false;
+        showLessonPlanModal = false;
     }
 
-    private void AddLessonPlan()
+    private async Task SaveLessonPlan()
     {
-        if (!string.IsNullOrEmpty(newLessonPlan.Title) && selectedCourse != null)
+        if (selectedCourse == null)
         {
-            newLessonPlan.Id = selectedCourse.LessonPlans.Count > 0 ? 
-                selectedCourse.LessonPlans.Max(lp => lp.Id) + 1 : 1;
-            newLessonPlan.CreatedAt = DateTime.Now;
-            selectedCourse.LessonPlans.Add(newLessonPlan);
-            CloseAddLessonPlanModal();
+            return;
         }
+
+        if (isEditingLessonPlan)
+        {
+            await CourseService.UpdateLessonPlanAsync(selectedCourse.Id, lessonPlanForm);
+        }
+        else
+        {
+            await CourseService.AddLessonPlanAsync(selectedCourse.Id, lessonPlanForm);
+        }
+
+        showLessonPlanModal = false;
+        viewingLessonPlan = null;
+        await LoadCoursesAsync(selectedCourse.Id);
     }
 
     private void ViewLessonPlan(LessonPlan lessonPlan)
     {
-        // Implementation for viewing lesson plan details
+        viewingLessonPlan = CloneLessonPlan(lessonPlan);
+    }
+
+    private void CloseViewLessonPlanModal()
+    {
+        viewingLessonPlan = null;
     }
 
     private void EditLessonPlan(LessonPlan lessonPlan)
     {
-        // Implementation for editing lesson plan
+        viewingLessonPlan = null;
+        lessonPlanForm = CloneLessonPlan(lessonPlan);
+        isEditingLessonPlan = true;
+        showLessonPlanModal = true;
     }
 
-    private void DeleteLessonPlan(LessonPlan lessonPlan)
+    private async Task DeleteLessonPlan(LessonPlan lessonPlan)
     {
-        if (selectedCourse != null)
+        if (selectedCourse == null)
         {
-            selectedCourse.LessonPlans.Remove(lessonPlan);
+            return;
         }
+
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete lesson plan '{lessonPlan.Title}'?");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await CourseService.DeleteLessonPlanAsync(selectedCourse.Id, lessonPlan.Id);
+        await LoadCoursesAsync(selectedCourse.Id);
     }
-} 
+
+    private static Course CreateDefaultCourse()
+    {
+        return new Course
+        {
+            StartDate = DateTime.Today,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    private static LessonPlan CreateDefaultLessonPlan()
+    {
+        return new LessonPlan
+        {
+            WeekNumber = 1,
+            DayNumber = 1,
+            DurationMinutes = 45,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    private static Course CloneCourse(Course course)
+    {
+        return new Course
+        {
+            Id = course.Id,
+            Name = course.Name,
+            Description = course.Description,
+            Subject = course.Subject,
+            GradeLevel = course.GradeLevel,
+            StartDate = course.StartDate,
+            EndDate = course.EndDate,
+            IsActive = course.IsActive,
+            CreatedAt = course.CreatedAt,
+            UpdatedAt = course.UpdatedAt,
+            LessonPlans = course.LessonPlans.Select(CloneLessonPlan).ToList(),
+            Assignments = course.Assignments,
+            Students = course.Students
+        };
+    }
+
+    private static LessonPlan CloneLessonPlan(LessonPlan lessonPlan)
+    {
+        return new LessonPlan
+        {
+            Id = lessonPlan.Id,
+            Title = lessonPlan.Title,
+            Description = lessonPlan.Description,
+            Objectives = lessonPlan.Objectives,
+            Materials = lessonPlan.Materials,
+            Activities = lessonPlan.Activities,
+            Assessment = lessonPlan.Assessment,
+            DurationMinutes = lessonPlan.DurationMinutes,
+            WeekNumber = lessonPlan.WeekNumber,
+            DayNumber = lessonPlan.DayNumber,
+            CreatedAt = lessonPlan.CreatedAt,
+            UpdatedAt = lessonPlan.UpdatedAt,
+            CourseId = lessonPlan.CourseId
+        };
+    }
+}
