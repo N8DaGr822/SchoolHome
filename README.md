@@ -40,6 +40,7 @@ This solution follows Clean Architecture principles:
 2. Set `HomeschoolManager.Web` as the startup project
 3. Build the solution
 4. Run the application
+5. Open `http://localhost:5129` if the browser does not open automatically
 
 ### Building from Command Line
 
@@ -72,7 +73,31 @@ dotnet run --project src/HomeschoolManager.Web
 
 ## Local Data
 
-The application uses a JSON-backed repository by default. In development, data is stored in `App_Data/homeschool-data.json` and seeded automatically on first run. The `App_Data/` folder is ignored by git so local homeschool records are not committed.
+The application uses a JSON-backed repository by default. Downloaded or published builds store records on the user's device at:
+
+```text
+%LOCALAPPDATA%\HomeschoolManager\homeschool-data.json
+```
+
+Runs with `ASPNETCORE_ENVIRONMENT=Development` use `App_Data/homeschool-data.json` because `appsettings.Development.json` sets `DataFilePath`. The included launch profile sets this environment for local development. The `App_Data/` folder is ignored by git so local homeschool records are not committed.
+
+To store the data file somewhere else, set `DataStorage:FilePath` in `appsettings.json`, an environment variable, or a command-line argument:
+
+```bash
+dotnet run --project src/HomeschoolManager.Web --DataStorage:FilePath="D:\Homeschool\homeschool-data.json"
+```
+
+The Storage page in the app shows the active data file path and supports exporting or importing JSON backups.
+
+## Publishing a Local App
+
+Create a local Windows build with:
+
+```bash
+dotnet publish src/HomeschoolManager.Web/HomeschoolManager.Web.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish/homeschool-manager
+```
+
+Run `publish/homeschool-manager/HomeschoolManager.Web.exe`, then open `http://localhost:5129`. Each user gets their own local data file by default.
 
 ## Contributing
 

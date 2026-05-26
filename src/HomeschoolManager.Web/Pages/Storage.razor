@@ -1,0 +1,117 @@
+@page "/storage"
+@using HomeschoolManager.Infrastructure.Data
+@inject HomeschoolDataStore DataStore
+@inject IJSRuntime JS
+
+<PageTitle>Storage - Homeschool Manager</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="mb-1">Storage</h1>
+            <p class="text-muted mb-0">Local records and backups.</p>
+        </div>
+        <button type="button" class="btn btn-primary" @onclick="ExportDataAsync">
+            <span class="oi oi-data-transfer-download"></span> Export Data
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="alert alert-success" role="status">@statusMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Device Storage</h5>
+                </div>
+                <div class="card-body">
+                    <label class="form-label" for="dataPath">Data file</label>
+                    <input id="dataPath" class="form-control font-monospace" value="@DataStore.FilePath" readonly />
+
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        <button type="button" class="btn btn-outline-primary" @onclick="ExportDataAsync">
+                            <span class="oi oi-data-transfer-download"></span> Export Backup
+                        </button>
+                        <label class="btn btn-outline-secondary mb-0" for="dataImport">
+                            <span class="oi oi-data-transfer-upload"></span> Import Backup
+                        </label>
+                        <InputFile id="dataImport"
+                                   class="visually-hidden"
+                                   accept=".json,application/json"
+                                   OnChange="ImportDataAsync" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Custom Location</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="mb-0">
+                        <dt>Default</dt>
+                        <dd class="text-muted">User local app data</dd>
+                        <dt>Override</dt>
+                        <dd class="text-muted mb-0">Set <code>DataStorage:FilePath</code></dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private const long MaxImportBytes = 10 * 1024 * 1024;
+    private string? statusMessage;
+    private string? errorMessage;
+
+    private async Task ExportDataAsync()
+    {
+        ClearMessages();
+
+        try
+        {
+            var json = await DataStore.ExportJsonAsync();
+            var fileName = $"homeschool-data-{DateTime.Now:yyyyMMdd-HHmmss}.json";
+            await JS.InvokeVoidAsync("homeschoolData.downloadTextFile", fileName, "application/json", json);
+            statusMessage = "Backup exported.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task ImportDataAsync(InputFileChangeEventArgs args)
+    {
+        ClearMessages();
+
+        try
+        {
+            var file = args.File;
+            await using var stream = file.OpenReadStream(MaxImportBytes);
+            await DataStore.ImportJsonAsync(stream);
+            statusMessage = $"{file.Name} imported.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private void ClearMessages()
+    {
+        statusMessage = null;
+        errorMessage = null;
+    }
+}
