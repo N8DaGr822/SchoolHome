@@ -1,4 +1,5 @@
 @page "/storage"
+@using System.IO
 @using HomeschoolManager.Infrastructure.Data
 @inject HomeschoolDataStore DataStore
 @inject IJSRuntime JS
@@ -11,7 +12,7 @@
             <h1 class="mb-1">Storage</h1>
             <p class="text-muted mb-0">Local records and backups.</p>
         </div>
-        <button type="button" class="btn btn-primary" @onclick="ExportDataAsync">
+        <button type="button" class="btn btn-primary" disabled="@isBusy" @onclick="ExportDataAsync">
             <span class="oi oi-data-transfer-download"></span> Export Data
         </button>
     </div>
@@ -26,6 +27,38 @@
         <div class="alert alert-danger" role="alert">@errorMessage</div>
     }
 
+    @if (pendingImportPreview is not null)
+    {
+        <div class="alert alert-warning" role="status">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                <div>
+                    <h5 class="alert-heading">Ready to import @pendingImportFileName</h5>
+                    <p class="mb-2">Importing this backup will replace the current local records. The existing data file will be kept as a backup.</p>
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Schema</dt>
+                        <dd class="col-sm-9">@pendingImportPreview.SchemaVersion</dd>
+                        <dt class="col-sm-3">Students</dt>
+                        <dd class="col-sm-9">@pendingImportPreview.StudentCount</dd>
+                        <dt class="col-sm-3">Courses</dt>
+                        <dd class="col-sm-9">@pendingImportPreview.CourseCount</dd>
+                        <dt class="col-sm-3">Assignments</dt>
+                        <dd class="col-sm-9">@pendingImportPreview.AssignmentCount</dd>
+                        <dt class="col-sm-3">Grades</dt>
+                        <dd class="col-sm-9 mb-0">@pendingImportPreview.GradeCount</dd>
+                    </dl>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-danger" disabled="@isBusy" @onclick="ConfirmImportAsync">
+                        Import
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" disabled="@isBusy" @onclick="CancelImport">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
     <div class="row g-3">
         <div class="col-lg-8">
             <div class="card h-100">
@@ -37,14 +70,15 @@
                     <input id="dataPath" class="form-control font-monospace" value="@DataStore.FilePath" readonly />
 
                     <div class="d-flex flex-wrap gap-2 mt-3">
-                        <button type="button" class="btn btn-outline-primary" @onclick="ExportDataAsync">
+                        <button type="button" class="btn btn-outline-primary" disabled="@isBusy" @onclick="ExportDataAsync">
                             <span class="oi oi-data-transfer-download"></span> Export Backup
                         </button>
-                        <label class="btn btn-outline-secondary mb-0" for="dataImport">
+                        <label class="btn btn-outline-secondary mb-0 @(isBusy ? "disabled" : string.Empty)" for="dataImport">
                             <span class="oi oi-data-transfer-upload"></span> Import Backup
                         </label>
                         <InputFile id="dataImport"
                                    class="visually-hidden"
+                                   disabled="@isBusy"
                                    accept=".json,application/json"
                                    OnChange="ImportDataAsync" />
                     </div>
@@ -62,7 +96,9 @@
                         <dt>Default</dt>
                         <dd class="text-muted">User local app data</dd>
                         <dt>Override</dt>
-                        <dd class="text-muted mb-0">Set <code>DataStorage:FilePath</code></dd>
+                        <dd class="text-muted">Set <code>DataStorage:FilePath</code></dd>
+                        <dt>Latest backup</dt>
+                        <dd class="text-muted mb-0"><code>@DataStore.BackupFilePath</code></dd>
                     </dl>
                 </div>
             </div>
@@ -74,10 +110,15 @@
     private const long MaxImportBytes = 10 * 1024 * 1024;
     private string? statusMessage;
     private string? errorMessage;
+    private bool isBusy;
+    private byte[]? pendingImportBytes;
+    private string? pendingImportFileName;
+    private HomeschoolImportPreview? pendingImportPreview;
 
     private async Task ExportDataAsync()
     {
         ClearMessages();
+        isBusy = true;
 
         try
         {
@@ -86,32 +127,101 @@
             await JS.InvokeVoidAsync("homeschoolData.downloadTextFile", fileName, "application/json", json);
             statusMessage = "Backup exported.";
         }
+        catch (InvalidDataException ex)
+        {
+            errorMessage = ex.Message;
+        }
         catch (Exception ex)
         {
             errorMessage = ex.Message;
+        }
+        finally
+        {
+            isBusy = false;
         }
     }
 
     private async Task ImportDataAsync(InputFileChangeEventArgs args)
     {
         ClearMessages();
+        ClearPendingImport();
+        isBusy = true;
 
         try
         {
             var file = args.File;
-            await using var stream = file.OpenReadStream(MaxImportBytes);
-            await DataStore.ImportJsonAsync(stream);
-            statusMessage = $"{file.Name} imported.";
+            await using var input = file.OpenReadStream(MaxImportBytes);
+            using var buffer = new MemoryStream();
+            await input.CopyToAsync(buffer);
+            pendingImportBytes = buffer.ToArray();
+            pendingImportFileName = file.Name;
+            using var previewStream = new MemoryStream(pendingImportBytes);
+            pendingImportPreview = await DataStore.PreviewImportJsonAsync(previewStream);
+            statusMessage = "Review the backup details, then choose Import to replace the current records.";
+        }
+        catch (InvalidDataException ex)
+        {
+            errorMessage = ex.Message;
         }
         catch (Exception ex)
         {
             errorMessage = ex.Message;
         }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task ConfirmImportAsync()
+    {
+        ClearMessages();
+
+        if (pendingImportBytes is null || pendingImportPreview is null)
+        {
+            errorMessage = "Choose a backup file before importing.";
+            return;
+        }
+
+        isBusy = true;
+        try
+        {
+            using var stream = new MemoryStream(pendingImportBytes);
+            await DataStore.ImportJsonAsync(stream);
+            statusMessage = $"{pendingImportFileName} imported. Previous records were backed up.";
+            ClearPendingImport();
+        }
+        catch (InvalidDataException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private void CancelImport()
+    {
+        ClearMessages();
+        ClearPendingImport();
+        statusMessage = "Import canceled.";
     }
 
     private void ClearMessages()
     {
         statusMessage = null;
         errorMessage = null;
+    }
+
+    private void ClearPendingImport()
+    {
+        pendingImportBytes = null;
+        pendingImportFileName = null;
+        pendingImportPreview = null;
     }
 }

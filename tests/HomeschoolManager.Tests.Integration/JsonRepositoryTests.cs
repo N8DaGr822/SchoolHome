@@ -110,6 +110,102 @@ public class JsonRepositoryTests : IDisposable
         Assert.Equal("Wells", imported.LastName);
     }
 
+    [Fact]
+    public async Task DataStore_ExportIncludesSchemaVersion()
+    {
+        var store = new HomeschoolDataStore(_dataFilePath);
+
+        var json = await store.ExportJsonAsync();
+        await using var stream = StreamFromString(json);
+        var preview = await store.PreviewImportJsonAsync(stream);
+
+        Assert.Contains("\"schemaVersion\": 1", json);
+        Assert.Equal(1, preview.SchemaVersion);
+        Assert.Equal(3, preview.StudentCount);
+        Assert.Equal(4, preview.CourseCount);
+    }
+
+    [Fact]
+    public async Task DataStore_RejectsImportWithDanglingReferences()
+    {
+        var store = new HomeschoolDataStore(_dataFilePath);
+        const string json = """
+            {
+              "schemaVersion": 1,
+              "students": [
+                {
+                  "id": 1,
+                  "firstName": "Nora",
+                  "lastName": "Stone",
+                  "dateOfBirth": "2014-05-01T00:00:00",
+                  "gradeLevel": "5th",
+                  "enrollmentDate": "2024-08-01T00:00:00",
+                  "createdAt": "2024-08-01T00:00:00"
+                }
+              ],
+              "courses": [],
+              "assignments": [
+                {
+                  "id": 1,
+                  "title": "Reading",
+                  "dueDate": "2024-09-01T00:00:00",
+                  "assignedDate": "2024-08-25T00:00:00",
+                  "courseId": 99,
+                  "studentId": 1,
+                  "createdAt": "2024-08-25T00:00:00"
+                }
+              ],
+              "grades": []
+            }
+            """;
+
+        await using var stream = StreamFromString(json);
+        var exception = await Assert.ThrowsAsync<InvalidDataException>(() => store.PreviewImportJsonAsync(stream));
+
+        Assert.Contains("missing course 99", exception.Message);
+    }
+
+    [Fact]
+    public async Task DataStore_ImportCreatesBackupOfPreviousData()
+    {
+        var targetStore = new HomeschoolDataStore(_dataFilePath);
+        var targetRepository = new JsonStudentRepository(targetStore);
+        await targetRepository.AddAsync(new Student
+        {
+            FirstName = "Taylor",
+            LastName = "Original",
+            DateOfBirth = new DateTime(2013, 9, 14),
+            GradeLevel = "6th",
+            EnrollmentDate = DateTime.Today
+        });
+
+        var sourcePath = Path.Combine(_testDirectory, "source-data.json");
+        var sourceStore = new HomeschoolDataStore(sourcePath);
+        var sourceRepository = new JsonStudentRepository(sourceStore);
+        await sourceRepository.AddAsync(new Student
+        {
+            FirstName = "Morgan",
+            LastName = "Imported",
+            DateOfBirth = new DateTime(2012, 10, 3),
+            GradeLevel = "7th",
+            EnrollmentDate = DateTime.Today
+        });
+
+        var importJson = await sourceStore.ExportJsonAsync();
+        await using var stream = StreamFromString(importJson);
+
+        await targetStore.ImportJsonAsync(stream);
+
+        Assert.True(File.Exists(targetStore.BackupFilePath));
+        var backupJson = await File.ReadAllTextAsync(targetStore.BackupFilePath);
+        Assert.Contains("Taylor", backupJson);
+
+        var reloadedRepository = new JsonStudentRepository(new HomeschoolDataStore(_dataFilePath));
+        var students = (await reloadedRepository.GetAllAsync()).ToList();
+        Assert.Contains(students, s => s.FirstName == "Morgan" && s.LastName == "Imported");
+        Assert.DoesNotContain(students, s => s.FirstName == "Taylor" && s.LastName == "Original");
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_testDirectory))
@@ -199,5 +295,10 @@ public class JsonRepositoryTests : IDisposable
         public void Dispose()
         {
         }
+    }
+
+    private static MemoryStream StreamFromString(string value)
+    {
+        return new MemoryStream(System.Text.Encoding.UTF8.GetBytes(value));
     }
 }
