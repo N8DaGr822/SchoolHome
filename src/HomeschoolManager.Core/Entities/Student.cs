@@ -1,6 +1,7 @@
 namespace HomeschoolManager.Core.Entities;
 
 using System.ComponentModel.DataAnnotations;
+using HomeschoolManager.Core.Validation;
 
 public class Student
 {
@@ -14,7 +15,7 @@ public class Student
     [StringLength(100)]
     public string LastName { get; set; } = string.Empty;
 
-    [EmailAddress]
+    [OptionalEmailAddress]
     [StringLength(255)]
     public string Email { get; set; } = string.Empty;
 

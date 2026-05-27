@@ -15,11 +15,6 @@
         <div class="alert alert-danger" role="alert">@errorMessage</div>
     }
 
-    @if (!string.IsNullOrWhiteSpace(reportMessage))
-    {
-        <div class="alert alert-info" role="status">@reportMessage</div>
-    }
-
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
@@ -53,6 +48,155 @@
             </div>
         </div>
     </div>
+
+    @if (generatedReport is not null)
+    {
+        <div class="row mb-4" id="report-section">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div>
+                            <h5 class="mb-0">Progress Report</h5>
+                            <small class="text-muted">Generated @generatedReport.GeneratedAt.ToString("MM/dd/yyyy h:mm tt")</small>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearReport">
+                            Close
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center mb-4">
+                            <div class="col-6 col-md-3 mb-3 mb-md-0">
+                                <h4 class="text-primary">@generatedReport.StudentCount</h4>
+                                <small class="text-muted">Students</small>
+                            </div>
+                            <div class="col-6 col-md-3 mb-3 mb-md-0">
+                                <h4 class="text-info">@generatedReport.CourseCount</h4>
+                                <small class="text-muted">Courses</small>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <h4 class="text-warning">@generatedReport.OpenAssignments</h4>
+                                <small class="text-muted">Open Assignments</small>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <h4 class="text-success">@generatedReport.CompletedAssignments</h4>
+                                <small class="text-muted">Completed Assignments</small>
+                            </div>
+                        </div>
+
+                        <div class="row g-4">
+                            <div class="col-lg-8">
+                                <h6>Student Workload</h6>
+                                @if (generatedReport.Students.Any())
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-sm align-middle">
+                                            <thead>
+                                                <tr>
+                                                    <th>Student</th>
+                                                    <th>Grade</th>
+                                                    <th>Subjects</th>
+                                                    <th>Open</th>
+                                                    <th>Completed</th>
+                                                    <th>Next Due</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var row in generatedReport.Students)
+                                                {
+                                                    <tr>
+                                                        <td>@row.StudentName</td>
+                                                        <td>@row.GradeLevel</td>
+                                                        <td>@row.Subjects</td>
+                                                        <td>@row.OpenAssignments</td>
+                                                        <td>@row.CompletedAssignments</td>
+                                                        <td>@(row.NextDueDate?.ToString("MM/dd/yyyy") ?? "-")</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="text-muted mb-0">No students available.</p>
+                                }
+                            </div>
+
+                            <div class="col-lg-4">
+                                <h6>Subject Summary</h6>
+                                @if (generatedReport.Subjects.Any())
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Subject</th>
+                                                    <th>Open</th>
+                                                    <th>Completed</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var row in generatedReport.Subjects)
+                                                {
+                                                    <tr>
+                                                        <td>@row.Subject</td>
+                                                        <td>@row.OpenAssignments</td>
+                                                        <td>@row.CompletedAssignments</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="text-muted mb-0">No assignment subjects available.</p>
+                                }
+                            </div>
+                        </div>
+
+                        <hr />
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Session Summary</h6>
+                                <p class="mb-1"><strong>@generatedReport.SessionHours.ToString("F1")</strong> hours tracked in this browser session.</p>
+                                @if (generatedReport.RecentSessions.Any())
+                                {
+                                    <ul class="list-unstyled mb-0">
+                                        @foreach (var session in generatedReport.RecentSessions)
+                                        {
+                                            <li>@session.Student, @session.Subject, @session.Duration on @session.Date.ToString("MM/dd/yyyy")</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p class="text-muted mb-0">No teaching sessions tracked in this browser session.</p>
+                                }
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Focus Areas</h6>
+                                @if (generatedReport.FocusAreas.Any())
+                                {
+                                    <ul class="mb-0">
+                                        @foreach (var item in generatedReport.FocusAreas)
+                                        {
+                                            <li>@item</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <p class="text-muted mb-0">No overdue or open assignment focus areas found.</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 
     <div class="row">
         <div class="col-md-6" id="session-tracker">
@@ -259,7 +403,7 @@
     private double totalTeachingHours;
     private int completedAssignments;
     private string? errorMessage;
-    private string? reportMessage;
+    private TeachingReport? generatedReport;
 
     private List<Student> students = new();
     private List<Course> courses = new();
@@ -330,7 +474,6 @@
         sessionStartTime = DateTime.Now;
         selectedStudentId = 0;
         selectedSubject = "";
-        reportMessage = null;
     }
 
     private void StopTeachingSession()
@@ -375,9 +518,71 @@
 
     private void GenerateReport()
     {
-        var openCount = pendingAssignments.Count;
-        var completedCount = completedAssignments;
-        reportMessage = $"Report generated {DateTime.Now:MM/dd/yyyy HH:mm}: {students.Count} students, {openCount} open assignments, {completedCount} completed assignments, {totalTeachingHours:F1} teaching session hours tracked in this browser session.";
+        var assignmentRows = allAssignments.ToList();
+        var focusAreas = pendingAssignments
+            .Where(a => a.DueDate.Date <= DateTime.Today.AddDays(7))
+            .OrderBy(a => a.DueDate)
+            .Select(a => $"{GetStudentName(a.StudentId)} has {a.Title} due {a.DueDate:MM/dd/yyyy}.")
+            .Take(5)
+            .ToList();
+
+        generatedReport = new TeachingReport
+        {
+            GeneratedAt = DateTime.Now,
+            StudentCount = students.Count,
+            CourseCount = courses.Count,
+            OpenAssignments = pendingAssignments.Count,
+            CompletedAssignments = completedAssignments,
+            SessionHours = totalTeachingHours,
+            Students = students
+                .Select(student => CreateStudentReportRow(student, assignmentRows))
+                .OrderBy(row => row.StudentName)
+                .ToList(),
+            Subjects = assignmentRows
+                .GroupBy(GetAssignmentSubject)
+                .Select(group => new SubjectReportRow
+                {
+                    Subject = group.Key,
+                    OpenAssignments = group.Count(a => a.Status != AssignmentStatus.Completed),
+                    CompletedAssignments = group.Count(a => a.Status == AssignmentStatus.Completed)
+                })
+                .OrderByDescending(row => row.OpenAssignments)
+                .ThenBy(row => row.Subject)
+                .ToList(),
+            RecentSessions = recentSessions.Take(5).ToList(),
+            FocusAreas = focusAreas
+        };
+    }
+
+    private void ClearReport()
+    {
+        generatedReport = null;
+    }
+
+    private StudentReportRow CreateStudentReportRow(Student student, List<Assignment> assignments)
+    {
+        var studentAssignments = assignments.Where(a => a.StudentId == student.Id).ToList();
+        var openAssignments = studentAssignments
+            .Where(a => a.Status != AssignmentStatus.Completed)
+            .OrderBy(a => a.DueDate)
+            .ToList();
+        var subjects = studentAssignments
+            .Select(GetAssignmentSubject)
+            .Concat(student.Courses.Select(c => string.IsNullOrWhiteSpace(c.Subject) ? c.Name : c.Subject))
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct()
+            .OrderBy(s => s)
+            .ToList();
+
+        return new StudentReportRow
+        {
+            StudentName = $"{student.FirstName} {student.LastName}",
+            GradeLevel = student.GradeLevel,
+            Subjects = subjects.Any() ? string.Join(", ", subjects) : "-",
+            OpenAssignments = openAssignments.Count,
+            CompletedAssignments = studentAssignments.Count(a => a.Status == AssignmentStatus.Completed),
+            NextDueDate = openAssignments.FirstOrDefault()?.DueDate
+        };
     }
 
     private string GetStudentName(int studentId)
@@ -403,11 +608,47 @@
             : $"{Math.Max(1, (int)Math.Round(duration.TotalMinutes))} min";
     }
 
+    private static string GetAssignmentSubject(Assignment assignment)
+    {
+        return string.IsNullOrWhiteSpace(assignment.Subject) ? "Unassigned" : assignment.Subject;
+    }
+
     public class TeachingSession
     {
         public string Student { get; set; } = "";
         public string Subject { get; set; } = "";
         public string Duration { get; set; } = "";
         public DateTime Date { get; set; }
+    }
+
+    private sealed class TeachingReport
+    {
+        public DateTime GeneratedAt { get; set; }
+        public int StudentCount { get; set; }
+        public int CourseCount { get; set; }
+        public int OpenAssignments { get; set; }
+        public int CompletedAssignments { get; set; }
+        public double SessionHours { get; set; }
+        public List<StudentReportRow> Students { get; set; } = new();
+        public List<SubjectReportRow> Subjects { get; set; } = new();
+        public List<TeachingSession> RecentSessions { get; set; } = new();
+        public List<string> FocusAreas { get; set; } = new();
+    }
+
+    private sealed class StudentReportRow
+    {
+        public string StudentName { get; set; } = "";
+        public string GradeLevel { get; set; } = "";
+        public string Subjects { get; set; } = "";
+        public int OpenAssignments { get; set; }
+        public int CompletedAssignments { get; set; }
+        public DateTime? NextDueDate { get; set; }
+    }
+
+    private sealed class SubjectReportRow
+    {
+        public string Subject { get; set; } = "";
+        public int OpenAssignments { get; set; }
+        public int CompletedAssignments { get; set; }
     }
 }

@@ -195,6 +195,7 @@ public sealed class HomeschoolDataStore
         data.SchemaVersion = HomeschoolData.CurrentSchemaVersion;
         data.Students ??= new List<Student>();
         data.Courses ??= new List<Course>();
+        data.LessonPlans ??= new List<LessonPlan>();
         data.Assignments ??= new List<Assignment>();
         data.Grades ??= new List<Grade>();
 
@@ -222,6 +223,34 @@ public sealed class HomeschoolDataStore
         foreach (var assignment in data.Assignments)
         {
             assignment.Grades ??= new List<Grade>();
+        }
+
+        foreach (var lessonPlan in data.LessonPlans)
+        {
+            if (lessonPlan.FamilyId == 0)
+            {
+                lessonPlan.FamilyId = 1;
+            }
+
+            if (lessonPlan.EstimatedMinutes == 0)
+            {
+                lessonPlan.EstimatedMinutes = 30;
+            }
+
+            if (lessonPlan.DurationMinutes == 0)
+            {
+                lessonPlan.DurationMinutes = lessonPlan.EstimatedMinutes;
+            }
+
+            if (lessonPlan.WeekNumber == 0)
+            {
+                lessonPlan.WeekNumber = 1;
+            }
+
+            if (lessonPlan.DayNumber == 0)
+            {
+                lessonPlan.DayNumber = Math.Max(1, (int)lessonPlan.PlannedDate.DayOfWeek);
+            }
         }
     }
 
@@ -259,6 +288,7 @@ public sealed class HomeschoolDataStore
             data.SchemaVersion,
             data.Students.Count,
             data.Courses.Count,
+            data.LessonPlans.Count,
             data.Assignments.Count,
             data.Grades.Count);
     }
@@ -267,12 +297,13 @@ public sealed class HomeschoolDataStore
     {
         ValidateUniqueIds(data.Students.Select(s => s.Id), "Student");
         ValidateUniqueIds(data.Courses.Select(c => c.Id), "Course");
+        ValidateUniqueIds(data.LessonPlans.Select(lp => lp.Id), "Lesson plan");
         ValidateUniqueIds(data.Assignments.Select(a => a.Id), "Assignment");
         ValidateUniqueIds(data.Grades.Select(g => g.Id), "Grade");
 
         foreach (var student in data.Students)
         {
-            ValidateStudent(student);
+            ValidateObject(student, $"Student {student.Id}");
         }
 
         foreach (var course in data.Courses)
@@ -292,6 +323,30 @@ public sealed class HomeschoolDataStore
         var studentIds = data.Students.Select(s => s.Id).ToHashSet();
         var courseIds = data.Courses.Select(c => c.Id).ToHashSet();
         var assignmentIds = data.Assignments.Select(a => a.Id).ToHashSet();
+
+        foreach (var lessonPlan in data.LessonPlans)
+        {
+            ValidateObject(lessonPlan, $"Lesson plan {lessonPlan.Id}");
+            if (lessonPlan.FamilyId <= 0)
+            {
+                throw new InvalidDataException($"Lesson plan {lessonPlan.Id} must have a family id.");
+            }
+
+            if (!studentIds.Contains(lessonPlan.StudentId))
+            {
+                throw new InvalidDataException($"Lesson plan {lessonPlan.Id} points to missing student {lessonPlan.StudentId}.");
+            }
+
+            if (!courseIds.Contains(lessonPlan.SubjectId))
+            {
+                throw new InvalidDataException($"Lesson plan {lessonPlan.Id} points to missing subject {lessonPlan.SubjectId}.");
+            }
+
+            if (lessonPlan.AssignmentId.HasValue && !assignmentIds.Contains(lessonPlan.AssignmentId.Value))
+            {
+                throw new InvalidDataException($"Lesson plan {lessonPlan.Id} points to missing assignment {lessonPlan.AssignmentId.Value}.");
+            }
+        }
 
         foreach (var assignment in data.Assignments)
         {
@@ -354,17 +409,6 @@ public sealed class HomeschoolDataStore
         }
     }
 
-    private static void ValidateStudent(Student student)
-    {
-        var value = Clone(student);
-        if (string.IsNullOrWhiteSpace(value.Email))
-        {
-            value.Email = "optional@example.com";
-        }
-
-        ValidateObject(value, $"Student {student.Id}");
-    }
-
     private static void SanitizeForStorage(HomeschoolData data)
     {
         foreach (var student in data.Students)
@@ -382,6 +426,11 @@ public sealed class HomeschoolDataStore
             {
                 lessonPlan.Course = null!;
             }
+        }
+
+        foreach (var lessonPlan in data.LessonPlans)
+        {
+            lessonPlan.Course = null!;
         }
 
         foreach (var assignment in data.Assignments)

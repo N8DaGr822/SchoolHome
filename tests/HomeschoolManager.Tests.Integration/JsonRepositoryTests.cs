@@ -123,6 +123,31 @@ public class JsonRepositoryTests : IDisposable
         Assert.Equal(1, preview.SchemaVersion);
         Assert.Equal(3, preview.StudentCount);
         Assert.Equal(4, preview.CourseCount);
+        Assert.Equal(0, preview.LessonPlanCount);
+    }
+
+    [Fact]
+    public async Task LessonPlanRepository_PersistsAndFiltersWeeklyLessons()
+    {
+        var repository = new JsonLessonPlanRepository(new HomeschoolDataStore(_dataFilePath));
+        var plannedDate = new DateTime(2026, 5, 27);
+        var created = await repository.AddAsync(new LessonPlan
+        {
+            FamilyId = 1,
+            StudentId = 1,
+            SubjectId = 1,
+            Title = "Fractions",
+            Description = "Practice equivalent fractions.",
+            PlannedDate = plannedDate,
+            EstimatedMinutes = 30
+        });
+
+        var reopenedRepository = new JsonLessonPlanRepository(new HomeschoolDataStore(_dataFilePath));
+        var week = (await reopenedRepository.GetByWeekAsync(new DateTime(2026, 5, 25), studentId: 1, subjectId: 1)).ToList();
+
+        Assert.Single(week);
+        Assert.Equal(created.Id, week[0].Id);
+        Assert.Equal("Fractions", week[0].Title);
     }
 
     [Fact]

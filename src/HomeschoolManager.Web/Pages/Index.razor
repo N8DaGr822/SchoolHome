@@ -4,18 +4,24 @@
 @inject IStudentService StudentService
 @inject ICourseService CourseService
 @inject IAssignmentService AssignmentService
+@inject ILessonPlanService LessonPlanService
 
 <PageTitle>Dashboard - Homeschool Manager</PageTitle>
 
-<div class="container-fluid">
+<div class="container-fluid family-dashboard">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div>
-            <h1 class="mb-1">Homeschool Dashboard</h1>
-            <p class="text-muted mb-0">Today&apos;s snapshot across students, courses, and open work.</p>
+            <h1 class="mb-1">Family Dashboard</h1>
+            <p class="text-muted mb-0">@DateTime.Today.ToString("dddd, MMMM d, yyyy")</p>
         </div>
-        <a href="teach" class="btn btn-success">
-            <span class="oi oi-play-circle"></span> Start Teaching
-        </a>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="planner" class="btn btn-primary">
+                <span class="oi oi-calendar"></span> Weekly Planner
+            </a>
+            <a href="teach" class="btn btn-success">
+                <span class="oi oi-play-circle"></span> Start Teaching
+            </a>
+        </div>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(errorMessage))
@@ -23,140 +29,236 @@
         <div class="alert alert-danger" role="alert">@errorMessage</div>
     }
 
-    <div class="row g-3">
-        <div class="col-md-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">Students</h5>
-                    <p class="display-6 mb-2">@students.Count</p>
-                    <a href="students" class="btn btn-outline-primary btn-sm">Manage Students</a>
+    @if (isLoading)
+    {
+        <div class="card">
+            <div class="card-body text-muted">Loading family dashboard...</div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-2 dashboard-summary">
+            <div class="col-md-3">
+                <div class="card h-100 dashboard-summary-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Today Summary</h5>
+                        <p class="display-6 mb-1">@studentCards.Count</p>
+                        <small class="text-muted">active students</small>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">Active Courses</h5>
-                    <p class="display-6 mb-2">@courses.Count(c => c.IsActive)</p>
-                    <a href="courses" class="btn btn-outline-primary btn-sm">View Courses</a>
+            <div class="col-md-3">
+                <div class="card h-100 dashboard-summary-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Due Today</h5>
+                        <p class="display-6 mb-1">@studentCards.Sum(card => card.AssignmentsDueToday)</p>
+                        <small class="text-muted">assignments</small>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">Open Assignments</h5>
-                    <p class="display-6 mb-2">@openAssignments.Count</p>
-                    <a href="assignments" class="btn btn-outline-primary btn-sm">Track Work</a>
+            <div class="col-md-3">
+                <div class="card h-100 dashboard-summary-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Planned Today</h5>
+                        <p class="display-6 mb-1">@studentCards.Sum(card => card.LessonsPlannedToday)</p>
+                        <small class="text-muted">lessons</small>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">Overdue</h5>
-                    <p class="display-6 mb-2 text-danger">@overdueAssignments.Count</p>
-                    <a href="assignments" class="btn btn-outline-danger btn-sm">Review Overdue</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row mt-4">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Upcoming Assignments</h5>
-                </div>
-                <div class="card-body">
-                    @if (upcomingAssignments.Any())
-                    {
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>Student</th>
-                                        <th>Assignment</th>
-                                        <th>Subject</th>
-                                        <th>Due</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var assignment in upcomingAssignments)
-                                    {
-                                        <tr>
-                                            <td>@GetStudentName(assignment.StudentId)</td>
-                                            <td>@assignment.Title</td>
-                                            <td>@assignment.Subject</td>
-                                            <td>@assignment.DueDate.ToString("MM/dd/yyyy")</td>
-                                            <td><span class="badge bg-@GetStatusColor(assignment.Status)">@assignment.Status</span></td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                    else
-                    {
-                        <p class="text-muted mb-0">No open assignments are due soon.</p>
-                    }
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Quick Actions</h5>
-                </div>
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <a href="students" class="btn btn-outline-primary">
-                            <span class="oi oi-people"></span> Add or Edit Student
-                        </a>
-                        <a href="courses" class="btn btn-outline-primary">
-                            <span class="oi oi-book"></span> Plan Course
-                        </a>
-                        <a href="assignments" class="btn btn-outline-primary">
-                            <span class="oi oi-task"></span> Add Assignment
-                        </a>
-                        <a href="resources" class="btn btn-outline-secondary">
-                            <span class="oi oi-folder"></span> Open Resources
-                        </a>
+            <div class="col-md-3">
+                <div class="card h-100 dashboard-summary-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Needs Attention</h5>
+                        <p class="display-6 mb-1 text-danger">@studentCards.Sum(card => card.OverdueAssignmentCount)</p>
+                        <small class="text-muted">items</small>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <h5 class="mb-2">Student Cards</h5>
+                @if (studentCards.Any())
+                {
+                    <div class="row g-2">
+                        @foreach (var card in studentCards)
+                        {
+                            <div class="col-xl-4 col-md-6">
+                                <div class="card h-100 dashboard-student-card">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start gap-2 dashboard-student-header">
+                                            <div>
+                                                <h5 class="mb-1">@card.StudentName</h5>
+                                                <small class="text-muted">Grade @card.GradeLevel</small>
+                                            </div>
+                                            <span class="badge bg-@GetAttendanceColor(card.AttendanceStatus)">@card.AttendanceStatus</span>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <div class="d-flex justify-content-between">
+                                                <small class="text-muted">Completion</small>
+                                                <small class="text-muted">@card.CompletionPercent%</small>
+                                            </div>
+                                            <div class="progress dashboard-progress">
+                                                <div class="progress-bar bg-success" style="width: @card.CompletionPercent%"></div>
+                                            </div>
+                                        </div>
+
+                                            <div class="dashboard-metrics">
+                                                <div>
+                                                    <span class="text-warning">@card.AssignmentsDueToday</span>
+                                                    <small>due</small>
+                                                </div>
+                                                <div>
+                                                    <span class="text-primary">@card.LessonsPlannedToday</span>
+                                                    <small>lessons</small>
+                                                </div>
+                                                <div>
+                                                    <span class="text-success">@card.CompletedCount</span>
+                                                    <small>done</small>
+                                                </div>
+                                                <div>
+                                                    <span class="text-primary">@card.RemainingCount</span>
+                                                    <small>left</small>
+                                                </div>
+                                                <div>
+                                                    <span class="text-danger">@card.OverdueAssignmentCount</span>
+                                                    <small>late</small>
+                                                </div>
+                                            </div>
+
+                                            <div class="dashboard-actions">
+                                                <a class="btn btn-sm btn-outline-primary" href="planner">Lesson</a>
+                                                <a class="btn btn-sm btn-outline-secondary" href="assignments">Assignment</a>
+                                                <a class="btn btn-sm btn-outline-success" href="teach">Attendance</a>
+                                                <a class="btn btn-sm btn-outline-info" href="students">Detail</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center text-muted">
+                        <h5>No Students Yet</h5>
+                        <p>Add a student to start building today&apos;s dashboard.</p>
+                        <a href="students" class="btn btn-primary">Add Student</a>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Overdue / Needs Attention</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (attentionItems.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Student</th>
+                                            <th>Item</th>
+                                            <th>Type</th>
+                                            <th>Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in attentionItems)
+                                        {
+                                            <tr>
+                                               <td>@item.StudentName</td>
+                                                <td>@item.Title</td>
+                                                <td><span class="badge bg-danger">@item.Type</span></td>
+                                                <td>@item.Date.ToString("MM/dd/yyyy")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0">No overdue assignments or skipped lessons need attention.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 mt-4 mt-lg-0">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Today&apos;s Plan</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (lessonsToday.Any())
+                        {
+                            <div class="d-grid gap-2">
+                                @foreach (var lesson in lessonsToday.OrderBy(l => GetStudentName(l.StudentId)).ThenBy(l => l.Title).Take(6))
+                                {
+                                    <div>
+                                        <div class="fw-semibold">@lesson.Title</div>
+                                        <small class="text-muted">@GetStudentName(lesson.StudentId) / @GetSubjectName(lesson.SubjectId) / @lesson.EstimatedMinutes min</small>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0">No lessons are planned for today.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @code {
     private List<Student> students = new();
     private List<Course> courses = new();
-    private List<Assignment> openAssignments = new();
-    private List<Assignment> overdueAssignments = new();
-    private List<Assignment> upcomingAssignments = new();
+    private List<Assignment> assignments = new();
+    private List<LessonPlan> lessonsToday = new();
+    private IReadOnlyList<StudentDashboardSummary> studentCards = Array.Empty<StudentDashboardSummary>();
+    private IReadOnlyList<DashboardAttentionItem> attentionItems = Array.Empty<DashboardAttentionItem>();
+    private bool isLoading = true;
     private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadDashboardAsync();
+    }
+
+    private async Task LoadDashboardAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
         try
         {
             students = (await StudentService.GetAllStudentsAsync()).ToList();
             courses = (await CourseService.GetAllCoursesAsync()).ToList();
-            openAssignments = (await AssignmentService.GetOpenAssignmentsAsync()).ToList();
-            overdueAssignments = openAssignments
-                .Where(a => a.DueDate.Date < DateTime.Today)
+            assignments = (await AssignmentService.GetAllAssignmentsAsync()).ToList();
+            lessonsToday = (await LessonPlanService.GetWeeklyLessonPlansAsync(DateTime.Today))
+                .Where(lp => lp.PlannedDate.Date == DateTime.Today)
                 .ToList();
-            upcomingAssignments = openAssignments
-                .OrderBy(a => a.DueDate)
-                .Take(6)
-                .ToList();
+            studentCards = FamilyDashboardSummary.BuildStudentCards(students, assignments, lessonsToday, DateTime.Today);
+            attentionItems = FamilyDashboardSummary.BuildAttentionItems(studentCards, assignments, DateTime.Today);
         }
         catch (Exception ex)
         {
             errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
         }
     }
 
@@ -166,14 +268,24 @@
         return student == null ? "Unknown student" : $"{student.FirstName} {student.LastName}";
     }
 
-    private static string GetStatusColor(AssignmentStatus status)
+    private string GetSubjectName(int subjectId)
+    {
+        var course = courses.FirstOrDefault(c => c.Id == subjectId);
+        if (course == null)
+        {
+            return "Unknown subject";
+        }
+
+        return string.IsNullOrWhiteSpace(course.Subject) ? course.Name : course.Subject;
+    }
+
+    private static string GetAttendanceColor(string status)
     {
         return status switch
         {
-            AssignmentStatus.Completed => "success",
-            AssignmentStatus.InProgress => "warning",
-            AssignmentStatus.Assigned => "secondary",
-            AssignmentStatus.Overdue => "danger",
+            "Present" => "success",
+            "Planned" => "primary",
+            "Skipped" => "warning",
             _ => "secondary"
         };
     }

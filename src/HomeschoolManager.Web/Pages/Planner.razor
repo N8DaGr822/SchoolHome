@@ -1,0 +1,486 @@
+@page "/planner"
+@using HomeschoolManager.Application.Services
+@using HomeschoolManager.Core.Entities
+@inject ILessonPlanService LessonPlanService
+@inject IStudentService StudentService
+@inject ICourseService CourseService
+@inject IJSRuntime JS
+
+<PageTitle>Weekly Planner - Homeschool Manager</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="mb-1">Weekly Lesson Planner</h1>
+            <p class="text-muted mb-0">@weekStart.ToString("MMM d") - @weekStart.AddDays(6).ToString("MMM d, yyyy")</p>
+        </div>
+        <button class="btn btn-primary" @onclick="ShowAddLessonModal">
+            <span class="oi oi-plus"></span> Add Lesson
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="alert alert-success" role="status">@statusMessage</div>
+    }
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label" for="planner-week">Week</label>
+                    <InputDate id="planner-week" class="form-control" @bind-Value="selectedWeekDate" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="planner-student">Student</label>
+                    <select id="planner-student" class="form-select" @bind="selectedStudentId">
+                        <option value="0">All Students</option>
+                        @foreach (var student in students)
+                        {
+                            <option value="@student.Id">@GetStudentName(student.Id)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="planner-subject">Subject</label>
+                    <select id="planner-subject" class="form-select" @bind="selectedSubjectId">
+                        <option value="0">All Subjects</option>
+                        @foreach (var course in courses)
+                        {
+                            <option value="@course.Id">@GetSubjectName(course.Id)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-secondary flex-fill" @onclick="PreviousWeek">
+                            <span class="oi oi-chevron-left"></span>
+                        </button>
+                        <button class="btn btn-outline-primary flex-fill" @onclick="ApplyFilters">Apply</button>
+                        <button class="btn btn-outline-secondary flex-fill" @onclick="NextWeek">
+                            <span class="oi oi-chevron-right"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="card">
+            <div class="card-body text-muted">Loading weekly lessons...</div>
+        </div>
+    }
+    else if (weekDays.All(day => !day.Lessons.Any()))
+    {
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="text-muted">No Lessons Planned</h5>
+                <p class="text-muted">Add a lesson or adjust the filters to build this week's plan.</p>
+                <button class="btn btn-primary" @onclick="ShowAddLessonModal">
+                    <span class="oi oi-plus"></span> Add Lesson
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var day in weekDays)
+            {
+                <div class="col-xl-3 col-lg-4 col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-0">@day.Date.ToString("dddd")</h5>
+                                <small class="text-muted">@day.Date.ToString("MMM d")</small>
+                            </div>
+                            <span class="badge bg-secondary">@day.Lessons.Count</span>
+                        </div>
+                        <div class="card-body">
+                            @if (day.Lessons.Any())
+                            {
+                                <div class="d-grid gap-2">
+                                    @foreach (var lesson in day.Lessons)
+                                    {
+                                        <div class="border rounded p-2">
+                                            <div class="d-flex justify-content-between gap-2">
+                                                <div>
+                                                    <div class="fw-semibold">@lesson.Title</div>
+                                                    <small class="text-muted">@GetStudentName(lesson.StudentId) / @GetSubjectName(lesson.SubjectId)</small>
+                                                </div>
+                                                <span class="badge bg-@GetStatusColor(lesson.Status) align-self-start">@lesson.Status</span>
+                                            </div>
+                                            @if (!string.IsNullOrWhiteSpace(lesson.Description))
+                                            {
+                                                <p class="small text-muted mb-2 mt-2">@lesson.Description</p>
+                                            }
+                                            <div class="small text-muted mb-2">@lesson.EstimatedMinutes min</div>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                @if (lesson.Status != LessonPlanStatus.Completed)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-success" @onclick="() => CompleteLesson(lesson)">
+                                                        <span class="oi oi-check"></span>
+                                                    </button>
+                                                }
+                                                @if (lesson.Status != LessonPlanStatus.Skipped)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => SkipLesson(lesson)">
+                                                        Skip
+                                                    </button>
+                                                }
+                                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => MoveLesson(lesson, -1)">
+                                                    <span class="oi oi-arrow-left"></span>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => MoveLesson(lesson, 1)">
+                                                    <span class="oi oi-arrow-right"></span>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-warning" @onclick="() => ShowEditLessonModal(lesson)">
+                                                    <span class="oi oi-pencil"></span>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-info" disabled="@lesson.AssignmentId.HasValue" @onclick="() => ConvertLesson(lesson)">
+                                                    @(lesson.AssignmentId.HasValue ? "Assigned" : "Assign")
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteLesson(lesson)">
+                                                    <span class="oi oi-trash"></span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted mb-0">No lessons planned.</p>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@if (showLessonModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <EditForm Model="@lessonForm" OnValidSubmit="SaveLesson">
+                    <DataAnnotationsValidator />
+                    <div class="modal-header">
+                        <h5 class="modal-title">@(isEditingLesson ? "Edit Lesson" : "Add Lesson")</h5>
+                        <button type="button" class="btn-close" @onclick="CloseLessonModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ValidationSummary />
+                        <div class="mb-3">
+                            <label class="form-label" for="lesson-title">Title</label>
+                            <InputText id="lesson-title" class="form-control" @bind-Value="lessonForm.Title" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="lesson-description">Description</label>
+                            <InputTextArea id="lesson-description" class="form-control" rows="3" @bind-Value="lessonForm.Description" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="lesson-student">Student</label>
+                                    <InputSelect id="lesson-student" class="form-select" @bind-Value="lessonForm.StudentId">
+                                        <option value="0">Select Student</option>
+                                        @foreach (var student in students)
+                                        {
+                                            <option value="@student.Id">@GetStudentName(student.Id)</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="lesson-subject">Subject</label>
+                                    <InputSelect id="lesson-subject" class="form-select" @bind-Value="lessonForm.SubjectId">
+                                        <option value="0">Select Subject</option>
+                                        @foreach (var course in courses)
+                                        {
+                                            <option value="@course.Id">@GetSubjectName(course.Id)</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="lesson-date">Planned Date</label>
+                                    <InputDate id="lesson-date" class="form-control" @bind-Value="lessonForm.PlannedDate" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="lesson-minutes">Estimated Minutes</label>
+                                    <InputNumber id="lesson-minutes" class="form-control" @bind-Value="lessonForm.EstimatedMinutes" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="lesson-status">Status</label>
+                            <InputSelect id="lesson-status" class="form-select" @bind-Value="lessonForm.Status">
+                                @foreach (var status in Enum.GetValues<LessonPlanStatus>())
+                                {
+                                    <option value="@status">@status</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseLessonModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">@(isEditingLesson ? "Save Changes" : "Add Lesson")</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private DateTime selectedWeekDate = DateTime.Today;
+    private DateTime weekStart = WeeklyPlannerView.GetWeekStart(DateTime.Today);
+    private int selectedStudentId;
+    private int selectedSubjectId;
+    private bool isLoading = true;
+    private bool showLessonModal;
+    private bool isEditingLesson;
+    private string? errorMessage;
+    private string? statusMessage;
+
+    private List<Student> students = new();
+    private List<Course> courses = new();
+    private List<LessonPlan> lessonPlans = new();
+    private IReadOnlyList<WeeklyPlannerDay> weekDays = Array.Empty<WeeklyPlannerDay>();
+    private LessonPlan lessonForm = CreateDefaultLesson();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            weekStart = WeeklyPlannerView.GetWeekStart(selectedWeekDate);
+            students = (await StudentService.GetAllStudentsAsync()).ToList();
+            courses = (await CourseService.GetAllCoursesAsync()).ToList();
+            lessonPlans = (await LessonPlanService.GetWeeklyLessonPlansAsync(
+                weekStart,
+                selectedStudentId == 0 ? null : selectedStudentId,
+                selectedSubjectId == 0 ? null : selectedSubjectId)).ToList();
+            weekDays = WeeklyPlannerView.GroupByDay(lessonPlans, weekStart);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ApplyFilters()
+    {
+        statusMessage = null;
+        await LoadDataAsync();
+    }
+
+    private async Task PreviousWeek()
+    {
+        selectedWeekDate = weekStart.AddDays(-7);
+        await LoadDataAsync();
+    }
+
+    private async Task NextWeek()
+    {
+        selectedWeekDate = weekStart.AddDays(7);
+        await LoadDataAsync();
+    }
+
+    private void ShowAddLessonModal()
+    {
+        lessonForm = CreateDefaultLesson();
+        lessonForm.PlannedDate = weekStart;
+        lessonForm.StudentId = selectedStudentId == 0 ? students.FirstOrDefault()?.Id ?? 0 : selectedStudentId;
+        lessonForm.SubjectId = selectedSubjectId == 0 ? courses.FirstOrDefault()?.Id ?? 0 : selectedSubjectId;
+        isEditingLesson = false;
+        showLessonModal = true;
+    }
+
+    private void ShowEditLessonModal(LessonPlan lessonPlan)
+    {
+        lessonForm = CloneLesson(lessonPlan);
+        isEditingLesson = true;
+        showLessonModal = true;
+    }
+
+    private void CloseLessonModal()
+    {
+        showLessonModal = false;
+    }
+
+    private async Task SaveLesson()
+    {
+        try
+        {
+            if (isEditingLesson)
+            {
+                await LessonPlanService.UpdateLessonPlanAsync(lessonForm);
+            }
+            else
+            {
+                await LessonPlanService.CreateLessonPlanAsync(lessonForm);
+            }
+
+            statusMessage = isEditingLesson ? "Lesson updated." : "Lesson created.";
+            showLessonModal = false;
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task CompleteLesson(LessonPlan lessonPlan)
+    {
+        await RunLessonActionAsync(async () =>
+        {
+            await LessonPlanService.CompleteLessonPlanAsync(lessonPlan.Id);
+            statusMessage = "Lesson completed.";
+        });
+    }
+
+    private async Task SkipLesson(LessonPlan lessonPlan)
+    {
+        await RunLessonActionAsync(async () =>
+        {
+            await LessonPlanService.SkipLessonPlanAsync(lessonPlan.Id);
+            statusMessage = "Lesson skipped.";
+        });
+    }
+
+    private async Task MoveLesson(LessonPlan lessonPlan, int days)
+    {
+        await RunLessonActionAsync(async () =>
+        {
+            await LessonPlanService.MoveLessonPlanAsync(lessonPlan.Id, lessonPlan.PlannedDate.AddDays(days));
+            statusMessage = days < 0 ? "Lesson moved earlier." : "Lesson moved later.";
+        });
+    }
+
+    private async Task ConvertLesson(LessonPlan lessonPlan)
+    {
+        await RunLessonActionAsync(async () =>
+        {
+            var assignment = await LessonPlanService.ConvertToAssignmentAsync(lessonPlan.Id);
+            statusMessage = $"Assignment '{assignment.Title}' created.";
+        });
+    }
+
+    private async Task DeleteLesson(LessonPlan lessonPlan)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete lesson '{lessonPlan.Title}'?");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await RunLessonActionAsync(async () =>
+        {
+            await LessonPlanService.DeleteLessonPlanAsync(lessonPlan.Id);
+            statusMessage = "Lesson deleted.";
+        });
+    }
+
+    private async Task RunLessonActionAsync(Func<Task> action)
+    {
+        errorMessage = null;
+        try
+        {
+            await action();
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private string GetStudentName(int studentId)
+    {
+        var student = students.FirstOrDefault(s => s.Id == studentId);
+        return student == null ? "Unknown student" : $"{student.FirstName} {student.LastName}";
+    }
+
+    private string GetSubjectName(int subjectId)
+    {
+        var course = courses.FirstOrDefault(c => c.Id == subjectId);
+        if (course == null)
+        {
+            return "Unknown subject";
+        }
+
+        return string.IsNullOrWhiteSpace(course.Subject) ? course.Name : $"{course.Subject}: {course.Name}";
+    }
+
+    private static string GetStatusColor(LessonPlanStatus status)
+    {
+        return status switch
+        {
+            LessonPlanStatus.Completed => "success",
+            LessonPlanStatus.Skipped => "secondary",
+            _ => "primary"
+        };
+    }
+
+    private static LessonPlan CreateDefaultLesson()
+    {
+        return new LessonPlan
+        {
+            FamilyId = 1,
+            PlannedDate = DateTime.Today,
+            EstimatedMinutes = 30,
+            Status = LessonPlanStatus.Planned,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    private static LessonPlan CloneLesson(LessonPlan lessonPlan)
+    {
+        return new LessonPlan
+        {
+            Id = lessonPlan.Id,
+            FamilyId = lessonPlan.FamilyId,
+            StudentId = lessonPlan.StudentId,
+            SubjectId = lessonPlan.SubjectId,
+            Title = lessonPlan.Title,
+            Description = lessonPlan.Description,
+            PlannedDate = lessonPlan.PlannedDate,
+            EstimatedMinutes = lessonPlan.EstimatedMinutes,
+            Status = lessonPlan.Status,
+            AssignmentId = lessonPlan.AssignmentId,
+            CreatedAt = lessonPlan.CreatedAt,
+            UpdatedAt = lessonPlan.UpdatedAt,
+            CourseId = lessonPlan.CourseId
+        };
+    }
+}

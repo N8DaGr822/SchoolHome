@@ -9,6 +9,7 @@ internal class HomeschoolData
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public List<Student> Students { get; set; } = new();
     public List<Course> Courses { get; set; } = new();
+    public List<LessonPlan> LessonPlans { get; set; } = new();
     public List<Assignment> Assignments { get; set; } = new();
     public List<Grade> Grades { get; set; } = new();
 }
