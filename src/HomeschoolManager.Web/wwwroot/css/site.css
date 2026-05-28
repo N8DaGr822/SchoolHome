@@ -244,6 +244,23 @@ a,
     background: var(--app-surface-muted);
 }
 
+.attendance-minutes {
+    max-width: 7rem;
+}
+
+.attendance-month {
+    max-width: 10rem;
+}
+
+.attendance-calendar {
+    min-width: 56rem;
+}
+
+.attendance-calendar th,
+.attendance-calendar td {
+    white-space: nowrap;
+}
+
 .alert {
     border-color: var(--app-border);
 }

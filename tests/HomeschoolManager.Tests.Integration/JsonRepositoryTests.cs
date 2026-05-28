@@ -119,11 +119,36 @@ public class JsonRepositoryTests : IDisposable
         await using var stream = StreamFromString(json);
         var preview = await store.PreviewImportJsonAsync(stream);
 
-        Assert.Contains("\"schemaVersion\": 1", json);
-        Assert.Equal(1, preview.SchemaVersion);
+        Assert.Contains("\"schemaVersion\": 2", json);
+        Assert.Equal(2, preview.SchemaVersion);
         Assert.Equal(3, preview.StudentCount);
         Assert.Equal(4, preview.CourseCount);
         Assert.Equal(0, preview.LessonPlanCount);
+        Assert.Equal(3, preview.AttendanceRecordCount);
+    }
+
+    [Fact]
+    public async Task AttendanceRepository_PreventsDuplicateStudentDateRecords()
+    {
+        var repository = new JsonAttendanceRepository(new HomeschoolDataStore(_dataFilePath));
+        var date = new DateTime(2026, 1, 8);
+        await repository.AddAsync(new AttendanceRecord
+        {
+            StudentId = 1,
+            Date = date,
+            Status = AttendanceStatus.Present,
+            Minutes = 240
+        });
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repository.AddAsync(new AttendanceRecord
+            {
+                StudentId = 1,
+                Date = date.AddHours(10),
+                Status = AttendanceStatus.Absent
+            }));
+
+        Assert.Contains("already recorded", exception.Message);
     }
 
     [Fact]

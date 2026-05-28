@@ -1,0 +1,387 @@
+@page "/attendance"
+@using HomeschoolManager.Application.Services
+@using HomeschoolManager.Core.Entities
+@inject IAttendanceService AttendanceService
+@inject IStudentService StudentService
+
+<PageTitle>Attendance - Homeschool Manager</PageTitle>
+
+<div class="container-fluid attendance-page">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="mb-1">Attendance</h1>
+            <p class="text-muted mb-0">@selectedDate.ToString("dddd, MMMM d, yyyy")</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <input type="date"
+                   class="form-control"
+                   value="@selectedDate.ToString("yyyy-MM-dd")"
+                   @onchange="OnSelectedDateChanged" />
+            <button type="button" class="btn btn-outline-primary" disabled="@isLoading" @onclick="LoadAttendanceAsync">
+                <span class="oi oi-reload"></span> Refresh
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="alert alert-success" role="status">@statusMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="card">
+            <div class="card-body text-muted">Loading attendance...</div>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <h5 class="mb-0">Daily Attendance</h5>
+                <small class="text-muted">@attendanceRows.Count(row => row.IsRecorded) of @attendanceRows.Count recorded</small>
+            </div>
+            <div class="card-body">
+                @if (attendanceRows.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Status</th>
+                                    <th>Minutes</th>
+                                    <th>Notes</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in attendanceRows)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">@row.StudentName</div>
+                                            <small class="text-muted">Grade @row.GradeLevel</small>
+                                        </td>
+                                        <td>
+                                            <select class="form-select" @bind="row.Status">
+                                                @foreach (var status in Enum.GetValues<AttendanceStatus>())
+                                                {
+                                                    <option value="@status">@AttendanceStatusDisplay.GetLabel(status)</option>
+                                                }
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input type="number"
+                                                   class="form-control attendance-minutes"
+                                                   min="0"
+                                                   max="1440"
+                                                   value="@row.Minutes"
+                                                   @onchange="args => SetMinutes(row, args)" />
+                                        </td>
+                                        <td>
+                                            <input class="form-control"
+                                                   maxlength="1000"
+                                                   @bind="row.Notes"
+                                                   placeholder="Optional notes" />
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="d-inline-flex flex-wrap gap-2 justify-content-end">
+                                                <button type="button"
+                                                        class="btn btn-sm btn-primary"
+                                                        disabled="@row.IsBusy"
+                                                        @onclick="() => SaveRowAsync(row)">
+                                                    Save
+                                                </button>
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-danger"
+                                                        disabled="@row.IsBusy"
+                                                        @onclick="() => ClearRowAsync(row)">
+                                                    Clear
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">No active students found.</p>
+                }
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <h5 class="mb-0">Monthly Attendance</h5>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="PreviousMonth">
+                        <span class="oi oi-chevron-left"></span>
+                    </button>
+                    <input type="month"
+                           class="form-control form-control-sm attendance-month"
+                           value="@selectedMonth.ToString("yyyy-MM")"
+                           @onchange="OnMonthChanged" />
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="NextMonth">
+                        <span class="oi oi-chevron-right"></span>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle attendance-calendar">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                @foreach (var day in MonthDays)
+                                {
+                                    <th class="text-center">@day.Day</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var student in students)
+                            {
+                                <tr>
+                                    <th>@GetStudentName(student)</th>
+                                    @foreach (var day in MonthDays)
+                                    {
+                                        var record = GetMonthlyRecord(student.Id, day);
+                                        <td class="text-center">
+                                            @if (record is null)
+                                            {
+                                                <span class="text-muted">-</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-@AttendanceStatusDisplay.GetBadgeColor(record.Status)"
+                                                      title="@GetRecordTitle(record)">
+                                                    @AttendanceStatusDisplay.GetShortLabel(record.Status)
+                                                </span>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly List<AttendanceRow> attendanceRows = new();
+    private readonly Dictionary<(int StudentId, DateTime Date), AttendanceRecord> monthlyRecords = new();
+    private List<Student> students = new();
+    private DateTime selectedDate = DateTime.Today;
+    private DateTime selectedMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private bool isLoading = true;
+    private string? statusMessage;
+    private string? errorMessage;
+
+    private IReadOnlyList<DateTime> MonthDays =>
+        Enumerable.Range(1, DateTime.DaysInMonth(selectedMonth.Year, selectedMonth.Month))
+            .Select(day => new DateTime(selectedMonth.Year, selectedMonth.Month, day))
+            .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAttendanceAsync();
+    }
+
+    private async Task LoadAttendanceAsync()
+    {
+        isLoading = true;
+        ClearMessages();
+
+        try
+        {
+            students = (await StudentService.GetAllStudentsAsync()).ToList();
+            var records = (await AttendanceService.GetAttendanceByDateAsync(selectedDate))
+                .ToDictionary(record => record.StudentId);
+
+            attendanceRows.Clear();
+            foreach (var student in students)
+            {
+                records.TryGetValue(student.Id, out var record);
+                attendanceRows.Add(new AttendanceRow
+                {
+                    StudentId = student.Id,
+                    StudentName = GetStudentName(student),
+                    GradeLevel = student.GradeLevel,
+                    RecordId = record?.Id,
+                    Status = record?.Status ?? AttendanceStatus.Present,
+                    Minutes = record?.Minutes,
+                    Notes = record?.Notes ?? string.Empty,
+                    IsRecorded = record != null
+                });
+            }
+
+            await LoadMonthAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadMonthAsync()
+    {
+        monthlyRecords.Clear();
+        var records = await AttendanceService.GetAttendanceByMonthAsync(selectedMonth.Year, selectedMonth.Month);
+        foreach (var record in records)
+        {
+            monthlyRecords[(record.StudentId, record.Date.Date)] = record;
+        }
+    }
+
+    private async Task SaveRowAsync(AttendanceRow row)
+    {
+        ClearMessages();
+        row.IsBusy = true;
+
+        try
+        {
+            var saved = await AttendanceService.SaveAttendanceAsync(new AttendanceRecord
+            {
+                Id = row.RecordId ?? 0,
+                StudentId = row.StudentId,
+                Date = selectedDate,
+                Status = row.Status,
+                Minutes = row.Minutes,
+                Notes = row.Notes
+            });
+
+            row.RecordId = saved.Id;
+            row.IsRecorded = true;
+            statusMessage = $"{row.StudentName} marked {AttendanceStatusDisplay.GetLabel(row.Status).ToLowerInvariant()}.";
+            await LoadMonthAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            row.IsBusy = false;
+        }
+    }
+
+    private async Task ClearRowAsync(AttendanceRow row)
+    {
+        ClearMessages();
+        row.IsBusy = true;
+
+        try
+        {
+            if (row.RecordId.HasValue)
+            {
+                await AttendanceService.DeleteAttendanceAsync(row.RecordId.Value);
+            }
+
+            row.RecordId = null;
+            row.Status = AttendanceStatus.Present;
+            row.Minutes = null;
+            row.Notes = string.Empty;
+            row.IsRecorded = false;
+            statusMessage = $"{row.StudentName} attendance cleared.";
+            await LoadMonthAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            row.IsBusy = false;
+        }
+    }
+
+    private async Task OnSelectedDateChanged(ChangeEventArgs args)
+    {
+        if (DateTime.TryParse(Convert.ToString(args.Value), out var date))
+        {
+            selectedDate = date.Date;
+            selectedMonth = new DateTime(selectedDate.Year, selectedDate.Month, 1);
+            await LoadAttendanceAsync();
+        }
+    }
+
+    private async Task OnMonthChanged(ChangeEventArgs args)
+    {
+        if (DateTime.TryParse($"{args.Value}-01", out var month))
+        {
+            selectedMonth = new DateTime(month.Year, month.Month, 1);
+            await LoadMonthAsync();
+        }
+    }
+
+    private async Task PreviousMonth()
+    {
+        selectedMonth = selectedMonth.AddMonths(-1);
+        await LoadMonthAsync();
+    }
+
+    private async Task NextMonth()
+    {
+        selectedMonth = selectedMonth.AddMonths(1);
+        await LoadMonthAsync();
+    }
+
+    private void SetMinutes(AttendanceRow row, ChangeEventArgs args)
+    {
+        var value = Convert.ToString(args.Value);
+        row.Minutes = int.TryParse(value, out var minutes) ? minutes : null;
+    }
+
+    private AttendanceRecord? GetMonthlyRecord(int studentId, DateTime date)
+    {
+        return monthlyRecords.TryGetValue((studentId, date.Date), out var record) ? record : null;
+    }
+
+    private static string GetRecordTitle(AttendanceRecord record)
+    {
+        var label = AttendanceStatusDisplay.GetLabel(record.Status);
+        var minutes = record.Minutes.HasValue ? $" / {record.Minutes} min" : string.Empty;
+        var notes = string.IsNullOrWhiteSpace(record.Notes) ? string.Empty : $" / {record.Notes}";
+        return $"{label}{minutes}{notes}";
+    }
+
+    private static string GetStudentName(Student student)
+    {
+        return $"{student.FirstName} {student.LastName}";
+    }
+
+    private void ClearMessages()
+    {
+        statusMessage = null;
+        errorMessage = null;
+    }
+
+    private sealed class AttendanceRow
+    {
+        public int StudentId { get; set; }
+        public string StudentName { get; set; } = string.Empty;
+        public string GradeLevel { get; set; } = string.Empty;
+        public int? RecordId { get; set; }
+        public AttendanceStatus Status { get; set; } = AttendanceStatus.Present;
+        public int? Minutes { get; set; }
+        public string Notes { get; set; } = string.Empty;
+        public bool IsRecorded { get; set; }
+        public bool IsBusy { get; set; }
+    }
+}

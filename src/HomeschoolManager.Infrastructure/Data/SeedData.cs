@@ -121,6 +121,12 @@ internal static class SeedData
                 new() { Id = 2, StudentId = 1, AssignmentId = 1, Subject = "Science", Assignment = "Experiment Report", GradeValue = "A-", Score = 91, Date = DateTime.Today.AddDays(-5), GradedDate = DateTime.Today.AddDays(-5), CreatedAt = new DateTime(2024, 8, 10) },
                 new() { Id = 3, StudentId = 2, AssignmentId = 2, Subject = "Language Arts", Assignment = "Book Report", GradeValue = "B+", Score = 88, Date = DateTime.Today.AddDays(-7), GradedDate = DateTime.Today.AddDays(-7), CreatedAt = new DateTime(2024, 8, 10) },
                 new() { Id = 4, StudentId = 3, AssignmentId = 3, Subject = "History", Assignment = "Timeline Project", GradeValue = "A", Score = 95, Date = DateTime.Today.AddDays(-10), GradedDate = DateTime.Today.AddDays(-10), CreatedAt = new DateTime(2024, 8, 10) }
+            ],
+            AttendanceRecords =
+            [
+                new() { Id = 1, StudentId = 1, Date = DateTime.Today, Status = AttendanceStatus.Present, Minutes = 240, Notes = "Full lesson day.", CreatedAt = DateTime.UtcNow },
+                new() { Id = 2, StudentId = 2, Date = DateTime.Today, Status = AttendanceStatus.Partial, Minutes = 120, Notes = "Morning lessons only.", CreatedAt = DateTime.UtcNow },
+                new() { Id = 3, StudentId = 3, Date = DateTime.Today, Status = AttendanceStatus.FieldTrip, Minutes = 180, Notes = "Museum field trip.", CreatedAt = DateTime.UtcNow }
             ]
         };
     }

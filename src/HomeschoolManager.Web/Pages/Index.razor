@@ -5,6 +5,7 @@
 @inject ICourseService CourseService
 @inject IAssignmentService AssignmentService
 @inject ILessonPlanService LessonPlanService
+@inject IAttendanceService AttendanceService
 
 <PageTitle>Dashboard - Homeschool Manager</PageTitle>
 
@@ -17,6 +18,9 @@
         <div class="d-flex flex-wrap gap-2">
             <a href="planner" class="btn btn-primary">
                 <span class="oi oi-calendar"></span> Weekly Planner
+            </a>
+            <a href="attendance" class="btn btn-outline-primary">
+                <span class="oi oi-check"></span> Attendance
             </a>
             <a href="teach" class="btn btn-success">
                 <span class="oi oi-play-circle"></span> Start Teaching
@@ -131,7 +135,7 @@
                                             <div class="dashboard-actions">
                                                 <a class="btn btn-sm btn-outline-primary" href="planner">Lesson</a>
                                                 <a class="btn btn-sm btn-outline-secondary" href="assignments">Assignment</a>
-                                                <a class="btn btn-sm btn-outline-success" href="teach">Attendance</a>
+                                                <a class="btn btn-sm btn-outline-success" href="attendance">Attendance</a>
                                                 <a class="btn btn-sm btn-outline-info" href="students">Detail</a>
                                             </div>
                                         </div>
@@ -226,6 +230,7 @@
     private List<Course> courses = new();
     private List<Assignment> assignments = new();
     private List<LessonPlan> lessonsToday = new();
+    private List<AttendanceRecord> attendanceToday = new();
     private IReadOnlyList<StudentDashboardSummary> studentCards = Array.Empty<StudentDashboardSummary>();
     private IReadOnlyList<DashboardAttentionItem> attentionItems = Array.Empty<DashboardAttentionItem>();
     private bool isLoading = true;
@@ -249,7 +254,8 @@
             lessonsToday = (await LessonPlanService.GetWeeklyLessonPlansAsync(DateTime.Today))
                 .Where(lp => lp.PlannedDate.Date == DateTime.Today)
                 .ToList();
-            studentCards = FamilyDashboardSummary.BuildStudentCards(students, assignments, lessonsToday, DateTime.Today);
+            attendanceToday = (await AttendanceService.GetAttendanceByDateAsync(DateTime.Today)).ToList();
+            studentCards = FamilyDashboardSummary.BuildStudentCards(students, assignments, lessonsToday, DateTime.Today, attendanceToday);
             attentionItems = FamilyDashboardSummary.BuildAttentionItems(studentCards, assignments, DateTime.Today);
         }
         catch (Exception ex)
@@ -284,6 +290,11 @@
         return status switch
         {
             "Present" => "success",
+            "Absent" => "danger",
+            "Sick" => "warning",
+            "Field Trip" => "info",
+            "Holiday" => "secondary",
+            "Partial" => "primary",
             "Planned" => "primary",
             "Skipped" => "warning",
             _ => "secondary"

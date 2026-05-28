@@ -8,11 +8,13 @@ public static class FamilyDashboardSummary
         IEnumerable<Student> students,
         IEnumerable<Assignment> assignments,
         IEnumerable<LessonPlan> lessonPlans,
-        DateTime date)
+        DateTime date,
+        IEnumerable<AttendanceRecord>? attendanceRecords = null)
     {
         var targetDate = date.Date;
         var assignmentList = assignments.ToList();
         var lessonList = lessonPlans.ToList();
+        var attendanceList = attendanceRecords?.ToList();
 
         return students
             .Select(student =>
@@ -37,7 +39,7 @@ public static class FamilyDashboardSummary
                     completed,
                     remaining,
                     overdue,
-                    GetAttendanceStatus(lessonsToday));
+                    GetAttendanceStatus(student.Id, targetDate, lessonsToday, attendanceList));
             })
             .OrderBy(card => card.StudentName)
             .ToList();
@@ -63,7 +65,26 @@ public static class FamilyDashboardSummary
             .ToList();
     }
 
-    private static string GetAttendanceStatus(IReadOnlyCollection<LessonPlan> lessonsToday)
+    private static string GetAttendanceStatus(
+        int studentId,
+        DateTime targetDate,
+        IReadOnlyCollection<LessonPlan> lessonsToday,
+        IReadOnlyCollection<AttendanceRecord>? attendanceRecords)
+    {
+        if (attendanceRecords is not null)
+        {
+            var attendanceRecord = attendanceRecords.FirstOrDefault(a =>
+                a.StudentId == studentId && a.Date.Date == targetDate);
+
+            return attendanceRecord == null
+                ? "Not Recorded"
+                : AttendanceStatusDisplay.GetLabel(attendanceRecord.Status);
+        }
+
+        return GetLessonBasedAttendanceStatus(lessonsToday);
+    }
+
+    private static string GetLessonBasedAttendanceStatus(IReadOnlyCollection<LessonPlan> lessonsToday)
     {
         if (!lessonsToday.Any())
         {

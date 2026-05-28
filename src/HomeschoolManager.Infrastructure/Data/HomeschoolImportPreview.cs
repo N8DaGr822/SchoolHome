@@ -6,4 +6,5 @@ public sealed record HomeschoolImportPreview(
     int CourseCount,
     int LessonPlanCount,
     int AssignmentCount,
-    int GradeCount);
+    int GradeCount,
+    int AttendanceRecordCount);

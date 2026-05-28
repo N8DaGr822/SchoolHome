@@ -198,12 +198,14 @@ public sealed class HomeschoolDataStore
         data.LessonPlans ??= new List<LessonPlan>();
         data.Assignments ??= new List<Assignment>();
         data.Grades ??= new List<Grade>();
+        data.AttendanceRecords ??= new List<AttendanceRecord>();
 
         foreach (var student in data.Students)
         {
             student.Courses ??= new List<Course>();
             student.Assignments ??= new List<Assignment>();
             student.Grades ??= new List<Grade>();
+            student.AttendanceRecords ??= new List<AttendanceRecord>();
         }
 
         foreach (var course in data.Courses)
@@ -223,6 +225,12 @@ public sealed class HomeschoolDataStore
         foreach (var assignment in data.Assignments)
         {
             assignment.Grades ??= new List<Grade>();
+        }
+
+        foreach (var attendanceRecord in data.AttendanceRecords)
+        {
+            attendanceRecord.Date = attendanceRecord.Date.Date;
+            attendanceRecord.Notes ??= string.Empty;
         }
 
         foreach (var lessonPlan in data.LessonPlans)
@@ -290,7 +298,8 @@ public sealed class HomeschoolDataStore
             data.Courses.Count,
             data.LessonPlans.Count,
             data.Assignments.Count,
-            data.Grades.Count);
+            data.Grades.Count,
+            data.AttendanceRecords.Count);
     }
 
     private static void Validate(HomeschoolData data)
@@ -300,6 +309,7 @@ public sealed class HomeschoolDataStore
         ValidateUniqueIds(data.LessonPlans.Select(lp => lp.Id), "Lesson plan");
         ValidateUniqueIds(data.Assignments.Select(a => a.Id), "Assignment");
         ValidateUniqueIds(data.Grades.Select(g => g.Id), "Grade");
+        ValidateUniqueIds(data.AttendanceRecords.Select(a => a.Id), "Attendance");
 
         foreach (var student in data.Students)
         {
@@ -379,6 +389,21 @@ public sealed class HomeschoolDataStore
                 throw new InvalidDataException($"Grade {grade.Id} points to missing assignment {grade.AssignmentId}.");
             }
         }
+
+        var attendanceKeys = new HashSet<(int StudentId, DateTime Date)>();
+        foreach (var attendanceRecord in data.AttendanceRecords)
+        {
+            ValidateObject(attendanceRecord, $"Attendance {attendanceRecord.Id}");
+            if (!studentIds.Contains(attendanceRecord.StudentId))
+            {
+                throw new InvalidDataException($"Attendance {attendanceRecord.Id} points to missing student {attendanceRecord.StudentId}.");
+            }
+
+            if (!attendanceKeys.Add((attendanceRecord.StudentId, attendanceRecord.Date.Date)))
+            {
+                throw new InvalidDataException($"Attendance for student {attendanceRecord.StudentId} on {attendanceRecord.Date:yyyy-MM-dd} is duplicated.");
+            }
+        }
     }
 
     private static void ValidateUniqueIds(IEnumerable<int> ids, string label)
@@ -416,6 +441,7 @@ public sealed class HomeschoolDataStore
             student.Courses = new List<Course>();
             student.Assignments = new List<Assignment>();
             student.Grades = new List<Grade>();
+            student.AttendanceRecords = new List<AttendanceRecord>();
         }
 
         foreach (var course in data.Courses)
@@ -444,6 +470,11 @@ public sealed class HomeschoolDataStore
         {
             grade.AssignmentEntity = null!;
             grade.Student = null!;
+        }
+
+        foreach (var attendanceRecord in data.AttendanceRecords)
+        {
+            attendanceRecord.Student = null!;
         }
     }
 }

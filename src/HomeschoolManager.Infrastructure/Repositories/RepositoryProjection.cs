@@ -19,6 +19,11 @@ internal static class RepositoryProjection
             .Where(g => g.StudentId == student.Id)
             .Select(HomeschoolDataStore.Clone)
             .ToList();
+        student.AttendanceRecords = data.AttendanceRecords
+            .Where(a => a.StudentId == student.Id)
+            .OrderByDescending(a => a.Date)
+            .Select(a => HydrateAttendanceRecord(data, a, includeStudent: false))
+            .ToList();
         student.Courses = data.Courses
             .Where(c => courseIds.Contains(c.Id))
             .Select(c => HydrateCourse(data, c, includeAssignments: false))
@@ -54,6 +59,7 @@ internal static class RepositoryProjection
                 student.Assignments = new List<Assignment>();
                 student.Grades = new List<Grade>();
                 student.Courses = new List<Course>();
+                student.AttendanceRecords = new List<AttendanceRecord>();
                 return student;
             })
             .ToList();
@@ -87,6 +93,7 @@ internal static class RepositoryProjection
             assignment.Student.Assignments = new List<Assignment>();
             assignment.Student.Grades = new List<Grade>();
             assignment.Student.Courses = new List<Course>();
+            assignment.Student.AttendanceRecords = new List<AttendanceRecord>();
         }
 
         assignment.Grades = data.Grades
@@ -95,5 +102,25 @@ internal static class RepositoryProjection
             .ToList();
 
         return assignment;
+    }
+
+    public static AttendanceRecord HydrateAttendanceRecord(
+        HomeschoolData data,
+        AttendanceRecord source,
+        bool includeStudent = true)
+    {
+        var attendanceRecord = HomeschoolDataStore.Clone(source);
+        var student = data.Students.FirstOrDefault(s => s.Id == attendanceRecord.StudentId);
+
+        if (includeStudent && student != null)
+        {
+            attendanceRecord.Student = HomeschoolDataStore.Clone(student);
+            attendanceRecord.Student.Assignments = new List<Assignment>();
+            attendanceRecord.Student.Grades = new List<Grade>();
+            attendanceRecord.Student.Courses = new List<Course>();
+            attendanceRecord.Student.AttendanceRecords = new List<AttendanceRecord>();
+        }
+
+        return attendanceRecord;
     }
 }

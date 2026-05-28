@@ -68,4 +68,37 @@ public class FamilyDashboardSummaryTests
         Assert.Equal("Late Math", items[0].Title);
         Assert.Equal("Overdue Assignment", items[0].Type);
     }
+
+    [Fact]
+    public void BuildStudentCards_RendersAttendanceRecordStatus()
+    {
+        var today = new DateTime(2026, 5, 27);
+        var students = new[]
+        {
+            new Student { Id = 1, FirstName = "Ava", LastName = "Brown", GradeLevel = "4th" }
+        };
+        var attendanceRecords = new[]
+        {
+            new AttendanceRecord
+            {
+                Id = 1,
+                StudentId = 1,
+                Date = today,
+                Status = AttendanceStatus.FieldTrip,
+                Minutes = 180
+            }
+        };
+
+        var cards = FamilyDashboardSummary.BuildStudentCards(
+            students,
+            Array.Empty<Assignment>(),
+            Array.Empty<LessonPlan>(),
+            today,
+            attendanceRecords);
+
+        Assert.Single(cards);
+        Assert.Equal("Field Trip", cards[0].AttendanceStatus);
+        Assert.Equal("info", AttendanceStatusDisplay.GetBadgeColor(AttendanceStatus.FieldTrip));
+        Assert.Equal("FT", AttendanceStatusDisplay.GetShortLabel(AttendanceStatus.FieldTrip));
+    }
 }

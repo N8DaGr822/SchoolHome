@@ -66,6 +66,7 @@ public class JsonStudentRepository : IStudentRepository
             data.Students.RemoveAll(s => s.Id == id);
             data.Assignments.RemoveAll(a => a.StudentId == id);
             data.Grades.RemoveAll(g => g.StudentId == id);
+            data.AttendanceRecords.RemoveAll(a => a.StudentId == id);
         });
     }
 
