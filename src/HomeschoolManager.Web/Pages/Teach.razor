@@ -510,8 +510,7 @@
             return;
         }
 
-        assignment.Status = AssignmentStatus.Completed;
-        await AssignmentService.UpdateAssignmentAsync(assignment);
+        await AssignmentService.CompleteAssignmentAsync(assignment.Id, createLearningTimeEntry: assignment.EstimatedMinutes.HasValue);
         draftGrades.Remove(assignment.Id);
         await LoadDataAsync();
     }

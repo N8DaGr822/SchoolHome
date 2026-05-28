@@ -38,6 +38,7 @@ public class JsonAssignmentRepository : IAssignmentRepository
             saved.Subject = string.IsNullOrWhiteSpace(saved.Subject)
                 ? data.Courses.FirstOrDefault(c => c.Id == saved.CourseId)?.Subject ?? string.Empty
                 : saved.Subject;
+            saved.EstimatedMinutes = saved.EstimatedMinutes <= 0 ? null : saved.EstimatedMinutes;
             saved.AssignedDate = saved.AssignedDate == default ? DateTime.UtcNow : saved.AssignedDate;
             saved.CreatedAt = saved.CreatedAt == default ? DateTime.UtcNow : saved.CreatedAt;
             data.Assignments.Add(saved);
@@ -60,6 +61,7 @@ public class JsonAssignmentRepository : IAssignmentRepository
             updated.Subject = string.IsNullOrWhiteSpace(updated.Subject)
                 ? data.Courses.FirstOrDefault(c => c.Id == updated.CourseId)?.Subject ?? string.Empty
                 : updated.Subject;
+            updated.EstimatedMinutes = updated.EstimatedMinutes <= 0 ? null : updated.EstimatedMinutes;
             updated.CreatedAt = updated.CreatedAt == default ? data.Assignments[index].CreatedAt : updated.CreatedAt;
             data.Assignments[index] = updated;
         });

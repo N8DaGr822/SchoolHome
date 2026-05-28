@@ -1,0 +1,331 @@
+@page "/learning-time"
+@using HomeschoolManager.Application.Services
+@using HomeschoolManager.Core.Entities
+@inject ILearningTimeService LearningTimeService
+@inject IStudentService StudentService
+@inject ICourseService CourseService
+
+<PageTitle>Instructional Hours - Homeschool Manager</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="mb-1">Instructional Hours</h1>
+            <p class="text-muted mb-0">Track and report learning time by student, subject, and date range.</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="alert alert-success" role="status">@statusMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Manual Time Entry</h5>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@entryForm" OnValidSubmit="SaveEntryAsync">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="mb-3">
+                            <label class="form-label" for="time-student">Student</label>
+                            <InputSelect id="time-student" class="form-select" @bind-Value="entryForm.StudentId">
+                                <option value="0">Select Student</option>
+                                @foreach (var student in students)
+                                {
+                                    <option value="@student.Id">@GetStudentName(student)</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="time-subject">Subject</label>
+                            <InputSelect id="time-subject" class="form-select" @bind-Value="entryForm.SubjectId">
+                                <option value="0">Select Subject</option>
+                                @foreach (var course in courses)
+                                {
+                                    <option value="@course.Id">@GetSubjectName(course)</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="time-date">Date</label>
+                                    <InputDate id="time-date" class="form-control" @bind-Value="entryForm.Date" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="time-minutes">Minutes</label>
+                                    <InputNumber id="time-minutes" class="form-control" @bind-Value="entryForm.Minutes" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="time-notes">Notes</label>
+                            <InputTextArea id="time-notes" class="form-control" rows="3" @bind-Value="entryForm.Notes" />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                            <span class="oi oi-plus"></span> Add Time
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Report</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label" for="report-start">Start</label>
+                            <InputDate id="report-start" class="form-control" @bind-Value="reportStart" />
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label" for="report-end">End</label>
+                            <InputDate id="report-end" class="form-control" @bind-Value="reportEnd" />
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-outline-primary w-100" @onclick="LoadReportAsync">
+                                Run
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (report is null)
+                    {
+                        <p class="text-muted mb-0">Run a report to see instructional hours.</p>
+                    }
+                    else
+                    {
+                        <div class="row text-center mb-3">
+                            <div class="col-md-4">
+                                <div class="p-3 border rounded">
+                                    <div class="display-6">@report.TotalMinutes</div>
+                                    <small class="text-muted">minutes</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="p-3 border rounded">
+                                    <div class="display-6">@report.TotalHours.ToString("F1")</div>
+                                    <small class="text-muted">hours</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="p-3 border rounded">
+                                    <div class="display-6">@entries.Count</div>
+                                    <small class="text-muted">entries</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <h6>By Student</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Student</th>
+                                                <th>Minutes</th>
+                                                <th>Hours</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var row in report.ByStudent)
+                                            {
+                                                <tr>
+                                                    <td>@row.StudentName</td>
+                                                    <td>@row.Minutes</td>
+                                                    <td>@row.Hours.ToString("F1")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>By Subject</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Subject</th>
+                                                <th>Minutes</th>
+                                                <th>Hours</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var row in report.BySubject)
+                                            {
+                                                <tr>
+                                                    <td>@row.Subject</td>
+                                                    <td>@row.Minutes</td>
+                                                    <td>@row.Hours.ToString("F1")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h6 class="mt-3">Entries</h6>
+                        @if (entries.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Student</th>
+                                            <th>Subject</th>
+                                            <th>Minutes</th>
+                                            <th>Source</th>
+                                            <th>Notes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var entry in entries)
+                                        {
+                                            <tr>
+                                                <td>@entry.Date.ToString("MM/dd/yyyy")</td>
+                                                <td>@GetStudentName(entry.StudentId)</td>
+                                                <td>@(string.IsNullOrWhiteSpace(entry.Subject) ? GetSubjectName(entry.SubjectId) : entry.Subject)</td>
+                                                <td>@entry.Minutes</td>
+                                                <td>@entry.Source</td>
+                                                <td>@entry.Notes</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0">No entries in this range.</p>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Student> students = new();
+    private List<Course> courses = new();
+    private List<LearningTimeEntry> entries = new();
+    private LearningTimeEntry entryForm = CreateDefaultEntry();
+    private LearningTimeReport? report;
+    private DateTime reportStart = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime reportEnd = DateTime.Today;
+    private string? statusMessage;
+    private string? errorMessage;
+    private bool isSaving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        students = (await StudentService.GetAllStudentsAsync()).ToList();
+        courses = (await CourseService.GetAllCoursesAsync()).ToList();
+        entryForm.StudentId = students.FirstOrDefault()?.Id ?? 0;
+        entryForm.SubjectId = courses.FirstOrDefault()?.Id ?? 0;
+        await LoadReportAsync();
+    }
+
+    private async Task SaveEntryAsync()
+    {
+        ClearMessages();
+        isSaving = true;
+
+        try
+        {
+            entryForm.Subject = courses.FirstOrDefault(c => c.Id == entryForm.SubjectId) is { } course
+                ? GetSubjectName(course)
+                : entryForm.Subject;
+            entryForm.Source = LearningTimeSource.Manual;
+            await LearningTimeService.CreateEntryAsync(entryForm);
+            statusMessage = "Learning time entry added.";
+            entryForm = CreateDefaultEntry();
+            entryForm.StudentId = students.FirstOrDefault()?.Id ?? 0;
+            entryForm.SubjectId = courses.FirstOrDefault()?.Id ?? 0;
+            await LoadReportAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task LoadReportAsync()
+    {
+        ClearMessages();
+        try
+        {
+            report = await LearningTimeService.GetReportAsync(reportStart, reportEnd);
+            entries = (await LearningTimeService.GetEntriesAsync(reportStart, reportEnd)).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private string GetStudentName(int studentId)
+    {
+        var student = students.FirstOrDefault(s => s.Id == studentId);
+        return student == null ? "Unknown student" : GetStudentName(student);
+    }
+
+    private static string GetStudentName(Student student)
+    {
+        return $"{student.FirstName} {student.LastName}";
+    }
+
+    private string GetSubjectName(int subjectId)
+    {
+        var course = courses.FirstOrDefault(c => c.Id == subjectId);
+        return course == null ? "Unknown subject" : GetSubjectName(course);
+    }
+
+    private static string GetSubjectName(Course course)
+    {
+        return string.IsNullOrWhiteSpace(course.Subject) ? course.Name : course.Subject;
+    }
+
+    private void ClearMessages()
+    {
+        statusMessage = null;
+        errorMessage = null;
+    }
+
+    private static LearningTimeEntry CreateDefaultEntry()
+    {
+        return new LearningTimeEntry
+        {
+            Date = DateTime.Today,
+            Minutes = 30,
+            Source = LearningTimeSource.Manual
+        };
+    }
+}

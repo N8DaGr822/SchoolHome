@@ -199,6 +199,7 @@ public sealed class HomeschoolDataStore
         data.Assignments ??= new List<Assignment>();
         data.Grades ??= new List<Grade>();
         data.AttendanceRecords ??= new List<AttendanceRecord>();
+        data.LearningTimeEntries ??= new List<LearningTimeEntry>();
 
         foreach (var student in data.Students)
         {
@@ -206,6 +207,7 @@ public sealed class HomeschoolDataStore
             student.Assignments ??= new List<Assignment>();
             student.Grades ??= new List<Grade>();
             student.AttendanceRecords ??= new List<AttendanceRecord>();
+            student.LearningTimeEntries ??= new List<LearningTimeEntry>();
         }
 
         foreach (var course in data.Courses)
@@ -231,6 +233,13 @@ public sealed class HomeschoolDataStore
         {
             attendanceRecord.Date = attendanceRecord.Date.Date;
             attendanceRecord.Notes ??= string.Empty;
+        }
+
+        foreach (var learningTimeEntry in data.LearningTimeEntries)
+        {
+            learningTimeEntry.Date = learningTimeEntry.Date.Date;
+            learningTimeEntry.Subject ??= string.Empty;
+            learningTimeEntry.Notes ??= string.Empty;
         }
 
         foreach (var lessonPlan in data.LessonPlans)
@@ -299,7 +308,8 @@ public sealed class HomeschoolDataStore
             data.LessonPlans.Count,
             data.Assignments.Count,
             data.Grades.Count,
-            data.AttendanceRecords.Count);
+            data.AttendanceRecords.Count,
+            data.LearningTimeEntries.Count);
     }
 
     private static void Validate(HomeschoolData data)
@@ -310,6 +320,7 @@ public sealed class HomeschoolDataStore
         ValidateUniqueIds(data.Assignments.Select(a => a.Id), "Assignment");
         ValidateUniqueIds(data.Grades.Select(g => g.Id), "Grade");
         ValidateUniqueIds(data.AttendanceRecords.Select(a => a.Id), "Attendance");
+        ValidateUniqueIds(data.LearningTimeEntries.Select(e => e.Id), "Learning time");
 
         foreach (var student in data.Students)
         {
@@ -404,6 +415,20 @@ public sealed class HomeschoolDataStore
                 throw new InvalidDataException($"Attendance for student {attendanceRecord.StudentId} on {attendanceRecord.Date:yyyy-MM-dd} is duplicated.");
             }
         }
+
+        foreach (var learningTimeEntry in data.LearningTimeEntries)
+        {
+            ValidateObject(learningTimeEntry, $"Learning time {learningTimeEntry.Id}");
+            if (!studentIds.Contains(learningTimeEntry.StudentId))
+            {
+                throw new InvalidDataException($"Learning time {learningTimeEntry.Id} points to missing student {learningTimeEntry.StudentId}.");
+            }
+
+            if (!courseIds.Contains(learningTimeEntry.SubjectId))
+            {
+                throw new InvalidDataException($"Learning time {learningTimeEntry.Id} points to missing subject {learningTimeEntry.SubjectId}.");
+            }
+        }
     }
 
     private static void ValidateUniqueIds(IEnumerable<int> ids, string label)
@@ -442,6 +467,7 @@ public sealed class HomeschoolDataStore
             student.Assignments = new List<Assignment>();
             student.Grades = new List<Grade>();
             student.AttendanceRecords = new List<AttendanceRecord>();
+            student.LearningTimeEntries = new List<LearningTimeEntry>();
         }
 
         foreach (var course in data.Courses)
@@ -475,6 +501,12 @@ public sealed class HomeschoolDataStore
         foreach (var attendanceRecord in data.AttendanceRecords)
         {
             attendanceRecord.Student = null!;
+        }
+
+        foreach (var learningTimeEntry in data.LearningTimeEntries)
+        {
+            learningTimeEntry.Student = null!;
+            learningTimeEntry.Course = null!;
         }
     }
 }

@@ -10,7 +10,7 @@ public interface ILessonPlanService
     Task<LessonPlan> CreateLessonPlanAsync(LessonPlan lessonPlan);
     Task<LessonPlan> UpdateLessonPlanAsync(LessonPlan lessonPlan);
     Task DeleteLessonPlanAsync(int id);
-    Task<LessonPlan> CompleteLessonPlanAsync(int id);
+    Task<LessonPlan> CompleteLessonPlanAsync(int id, bool createLearningTimeEntry = false);
     Task<LessonPlan> SkipLessonPlanAsync(int id);
     Task<LessonPlan> MoveLessonPlanAsync(int id, DateTime plannedDate);
     Task<Assignment> ConvertToAssignmentAsync(int id);

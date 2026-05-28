@@ -4,7 +4,7 @@ namespace HomeschoolManager.Infrastructure.Data;
 
 internal class HomeschoolData
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public List<Student> Students { get; set; } = new();
@@ -13,4 +13,5 @@ internal class HomeschoolData
     public List<Assignment> Assignments { get; set; } = new();
     public List<Grade> Grades { get; set; } = new();
     public List<AttendanceRecord> AttendanceRecords { get; set; } = new();
+    public List<LearningTimeEntry> LearningTimeEntries { get; set; } = new();
 }

@@ -31,6 +31,9 @@ public class Assignment
     [StringLength(100)]
     public string Subject { get; set; } = string.Empty;
 
+    [Range(1, 1440, ErrorMessage = "Estimated minutes must be positive.")]
+    public int? EstimatedMinutes { get; set; }
+
     // Navigation properties
     public Course Course { get; set; } = null!;
     public Student Student { get; set; } = null!;

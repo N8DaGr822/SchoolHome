@@ -119,12 +119,13 @@ public class JsonRepositoryTests : IDisposable
         await using var stream = StreamFromString(json);
         var preview = await store.PreviewImportJsonAsync(stream);
 
-        Assert.Contains("\"schemaVersion\": 2", json);
-        Assert.Equal(2, preview.SchemaVersion);
+        Assert.Contains("\"schemaVersion\": 3", json);
+        Assert.Equal(3, preview.SchemaVersion);
         Assert.Equal(3, preview.StudentCount);
         Assert.Equal(4, preview.CourseCount);
         Assert.Equal(0, preview.LessonPlanCount);
         Assert.Equal(3, preview.AttendanceRecordCount);
+        Assert.Equal(2, preview.LearningTimeEntryCount);
     }
 
     [Fact]

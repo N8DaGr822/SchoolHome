@@ -10,5 +10,6 @@ public interface IAssignmentService
     Task<IEnumerable<Assignment>> GetAssignmentsForStudentAsync(int studentId);
     Task<Assignment> CreateAssignmentAsync(Assignment assignment);
     Task<Assignment> UpdateAssignmentAsync(Assignment assignment);
+    Task<Assignment> CompleteAssignmentAsync(int id, bool createLearningTimeEntry = false);
     Task DeleteAssignmentAsync(int id);
 }

@@ -66,6 +66,7 @@
                                 <th>Student</th>
                                 <th>Assignment</th>
                                 <th>Course</th>
+                                <th>Minutes</th>
                                 <th>Due Date</th>
                                 <th>Status</th>
                                 <th class="text-end">Actions</th>
@@ -84,6 +85,7 @@
                                         }
                                     </td>
                                     <td>@GetCourseName(assignment.CourseId)</td>
+                                    <td>@(assignment.EstimatedMinutes?.ToString() ?? "-")</td>
                                     <td>
                                         <span class="@GetDueDateClass(assignment)">
                                             @assignment.DueDate.ToString("MM/dd/yyyy")
@@ -183,6 +185,12 @@
                                             <option value="@status">@status</option>
                                         }
                                     </InputSelect>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="assignment-minutes">Estimated Minutes</label>
+                                    <InputNumber id="assignment-minutes" class="form-control" @bind-Value="assignmentForm.EstimatedMinutes" />
                                 </div>
                             </div>
                         </div>
@@ -288,8 +296,7 @@
     private async Task CompleteAssignment(Assignment assignment)
     {
         var updated = CloneAssignment(assignment);
-        updated.Status = AssignmentStatus.Completed;
-        await AssignmentService.UpdateAssignmentAsync(updated);
+        await AssignmentService.CompleteAssignmentAsync(updated.Id, createLearningTimeEntry: updated.EstimatedMinutes.HasValue);
         await LoadDataAsync();
     }
 
@@ -360,7 +367,8 @@
             StudentId = assignment.StudentId,
             CreatedAt = assignment.CreatedAt,
             UpdatedAt = assignment.UpdatedAt,
-            Subject = assignment.Subject
+            Subject = assignment.Subject,
+            EstimatedMinutes = assignment.EstimatedMinutes
         };
     }
 }

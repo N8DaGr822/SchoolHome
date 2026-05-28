@@ -111,9 +111,9 @@ internal static class SeedData
             ],
             Assignments =
             [
-                new() { Id = 1, StudentId = 1, CourseId = 1, Subject = "Math", Title = "Algebra Worksheet", Description = "Practice simplifying expressions.", DueDate = DateTime.Today.AddDays(2), AssignedDate = DateTime.Today.AddDays(-3), Status = AssignmentStatus.Assigned, CreatedAt = new DateTime(2024, 8, 5) },
-                new() { Id = 2, StudentId = 2, CourseId = 4, Subject = "Science", Title = "Lab Report", Description = "Write observations from the cell structure lab.", DueDate = DateTime.Today.AddDays(5), AssignedDate = DateTime.Today.AddDays(-2), Status = AssignmentStatus.InProgress, CreatedAt = new DateTime(2024, 8, 5) },
-                new() { Id = 3, StudentId = 3, CourseId = 3, Subject = "Language Arts", Title = "Essay", Description = "Draft a short personal narrative.", DueDate = DateTime.Today.AddDays(1), AssignedDate = DateTime.Today.AddDays(-1), Status = AssignmentStatus.Assigned, CreatedAt = new DateTime(2024, 8, 5) }
+                new() { Id = 1, StudentId = 1, CourseId = 1, Subject = "Math", Title = "Algebra Worksheet", Description = "Practice simplifying expressions.", DueDate = DateTime.Today.AddDays(2), AssignedDate = DateTime.Today.AddDays(-3), Status = AssignmentStatus.Assigned, EstimatedMinutes = 45, CreatedAt = new DateTime(2024, 8, 5) },
+                new() { Id = 2, StudentId = 2, CourseId = 4, Subject = "Science", Title = "Lab Report", Description = "Write observations from the cell structure lab.", DueDate = DateTime.Today.AddDays(5), AssignedDate = DateTime.Today.AddDays(-2), Status = AssignmentStatus.InProgress, EstimatedMinutes = 60, CreatedAt = new DateTime(2024, 8, 5) },
+                new() { Id = 3, StudentId = 3, CourseId = 3, Subject = "Language Arts", Title = "Essay", Description = "Draft a short personal narrative.", DueDate = DateTime.Today.AddDays(1), AssignedDate = DateTime.Today.AddDays(-1), Status = AssignmentStatus.Assigned, EstimatedMinutes = 40, CreatedAt = new DateTime(2024, 8, 5) }
             ],
             Grades =
             [
@@ -127,6 +127,11 @@ internal static class SeedData
                 new() { Id = 1, StudentId = 1, Date = DateTime.Today, Status = AttendanceStatus.Present, Minutes = 240, Notes = "Full lesson day.", CreatedAt = DateTime.UtcNow },
                 new() { Id = 2, StudentId = 2, Date = DateTime.Today, Status = AttendanceStatus.Partial, Minutes = 120, Notes = "Morning lessons only.", CreatedAt = DateTime.UtcNow },
                 new() { Id = 3, StudentId = 3, Date = DateTime.Today, Status = AttendanceStatus.FieldTrip, Minutes = 180, Notes = "Museum field trip.", CreatedAt = DateTime.UtcNow }
+            ],
+            LearningTimeEntries =
+            [
+                new() { Id = 1, StudentId = 1, SubjectId = 1, Subject = "Math", Date = DateTime.Today.AddDays(-1), Minutes = 45, Notes = "Algebra practice.", Source = LearningTimeSource.Manual, CreatedAt = DateTime.UtcNow },
+                new() { Id = 2, StudentId = 2, SubjectId = 4, Subject = "Science", Date = DateTime.Today.AddDays(-1), Minutes = 60, Notes = "Lab reading.", Source = LearningTimeSource.Manual, CreatedAt = DateTime.UtcNow }
             ]
         };
     }

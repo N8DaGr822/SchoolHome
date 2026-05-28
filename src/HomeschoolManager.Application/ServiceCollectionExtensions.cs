@@ -13,6 +13,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssignmentService, AssignmentService>();
         services.AddScoped<ILessonPlanService, LessonPlanService>();
         services.AddScoped<IAttendanceService, AttendanceService>();
+        services.AddScoped<ILearningTimeService, LearningTimeService>();
 
         return services;
     }

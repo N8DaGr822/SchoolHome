@@ -17,6 +17,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssignmentRepository, JsonAssignmentRepository>();
         services.AddScoped<ILessonPlanRepository, JsonLessonPlanRepository>();
         services.AddScoped<IAttendanceRepository, JsonAttendanceRepository>();
+        services.AddScoped<ILearningTimeRepository, JsonLearningTimeRepository>();
 
         return services;
     }

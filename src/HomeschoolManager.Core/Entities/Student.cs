@@ -41,4 +41,5 @@ public class Student
     public List<Assignment> Assignments { get; set; } = new();
     public List<Grade> Grades { get; set; } = new();
     public List<AttendanceRecord> AttendanceRecords { get; set; } = new();
+    public List<LearningTimeEntry> LearningTimeEntries { get; set; } = new();
 }

@@ -364,7 +364,7 @@
     {
         await RunLessonActionAsync(async () =>
         {
-            await LessonPlanService.CompleteLessonPlanAsync(lessonPlan.Id);
+            await LessonPlanService.CompleteLessonPlanAsync(lessonPlan.Id, createLearningTimeEntry: true);
             statusMessage = "Lesson completed.";
         });
     }

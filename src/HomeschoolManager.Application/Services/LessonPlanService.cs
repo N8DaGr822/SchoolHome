@@ -9,17 +9,20 @@ public class LessonPlanService : ILessonPlanService
     private readonly IStudentRepository _studentRepository;
     private readonly IRepository<Course> _courseRepository;
     private readonly IAssignmentRepository _assignmentRepository;
+    private readonly ILearningTimeService? _learningTimeService;
 
     public LessonPlanService(
         ILessonPlanRepository lessonPlanRepository,
         IStudentRepository studentRepository,
         IRepository<Course> courseRepository,
-        IAssignmentRepository assignmentRepository)
+        IAssignmentRepository assignmentRepository,
+        ILearningTimeService? learningTimeService = null)
     {
         _lessonPlanRepository = lessonPlanRepository;
         _studentRepository = studentRepository;
         _courseRepository = courseRepository;
         _assignmentRepository = assignmentRepository;
+        _learningTimeService = learningTimeService;
     }
 
     public async Task<LessonPlan?> GetLessonPlanByIdAsync(int id)
@@ -67,11 +70,17 @@ public class LessonPlanService : ILessonPlanService
         await _lessonPlanRepository.DeleteAsync(id);
     }
 
-    public async Task<LessonPlan> CompleteLessonPlanAsync(int id)
+    public async Task<LessonPlan> CompleteLessonPlanAsync(int id, bool createLearningTimeEntry = false)
     {
         var lessonPlan = await GetRequiredLessonPlanAsync(id);
         lessonPlan.Status = LessonPlanStatus.Completed;
-        return await UpdateLessonPlanAsync(lessonPlan);
+        var updated = await UpdateLessonPlanAsync(lessonPlan);
+        if (createLearningTimeEntry && _learningTimeService is not null)
+        {
+            await _learningTimeService.CreateFromLessonCompletionAsync(updated);
+        }
+
+        return updated;
     }
 
     public async Task<LessonPlan> SkipLessonPlanAsync(int id)
@@ -111,6 +120,7 @@ public class LessonPlanService : ILessonPlanService
             CourseId = lessonPlan.SubjectId,
             StudentId = lessonPlan.StudentId,
             Subject = string.IsNullOrWhiteSpace(course.Subject) ? course.Name : course.Subject,
+            EstimatedMinutes = lessonPlan.EstimatedMinutes,
             CreatedAt = DateTime.UtcNow
         });
 

@@ -24,6 +24,11 @@ internal static class RepositoryProjection
             .OrderByDescending(a => a.Date)
             .Select(a => HydrateAttendanceRecord(data, a, includeStudent: false))
             .ToList();
+        student.LearningTimeEntries = data.LearningTimeEntries
+            .Where(e => e.StudentId == student.Id)
+            .OrderByDescending(e => e.Date)
+            .Select(e => HydrateLearningTimeEntry(data, e, includeStudent: false))
+            .ToList();
         student.Courses = data.Courses
             .Where(c => courseIds.Contains(c.Id))
             .Select(c => HydrateCourse(data, c, includeAssignments: false))
@@ -60,6 +65,7 @@ internal static class RepositoryProjection
                 student.Grades = new List<Grade>();
                 student.Courses = new List<Course>();
                 student.AttendanceRecords = new List<AttendanceRecord>();
+                student.LearningTimeEntries = new List<LearningTimeEntry>();
                 return student;
             })
             .ToList();
@@ -119,8 +125,42 @@ internal static class RepositoryProjection
             attendanceRecord.Student.Grades = new List<Grade>();
             attendanceRecord.Student.Courses = new List<Course>();
             attendanceRecord.Student.AttendanceRecords = new List<AttendanceRecord>();
+            attendanceRecord.Student.LearningTimeEntries = new List<LearningTimeEntry>();
         }
 
         return attendanceRecord;
+    }
+
+    public static LearningTimeEntry HydrateLearningTimeEntry(
+        HomeschoolData data,
+        LearningTimeEntry source,
+        bool includeStudent = true,
+        bool includeCourse = true)
+    {
+        var learningTimeEntry = HomeschoolDataStore.Clone(source);
+        var student = data.Students.FirstOrDefault(s => s.Id == learningTimeEntry.StudentId);
+        var course = data.Courses.FirstOrDefault(c => c.Id == learningTimeEntry.SubjectId);
+
+        if (string.IsNullOrWhiteSpace(learningTimeEntry.Subject) && course != null)
+        {
+            learningTimeEntry.Subject = string.IsNullOrWhiteSpace(course.Subject) ? course.Name : course.Subject;
+        }
+
+        if (includeStudent && student != null)
+        {
+            learningTimeEntry.Student = HomeschoolDataStore.Clone(student);
+            learningTimeEntry.Student.Assignments = new List<Assignment>();
+            learningTimeEntry.Student.Grades = new List<Grade>();
+            learningTimeEntry.Student.Courses = new List<Course>();
+            learningTimeEntry.Student.AttendanceRecords = new List<AttendanceRecord>();
+            learningTimeEntry.Student.LearningTimeEntries = new List<LearningTimeEntry>();
+        }
+
+        if (includeCourse && course != null)
+        {
+            learningTimeEntry.Course = HydrateCourse(data, course, includeAssignments: false);
+        }
+
+        return learningTimeEntry;
     }
 }
