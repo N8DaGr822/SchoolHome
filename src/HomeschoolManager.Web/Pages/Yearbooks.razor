@@ -1,0 +1,196 @@
+@page "/yearbooks"
+@using HomeschoolManager.Application.Services
+@inject IYearbookService YearbookService
+@inject IStudentService StudentService
+
+<PageTitle>Yearbooks - Homeschool Manager</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="mb-1">Yearbooks</h1>
+            <p class="text-muted mb-0">Create printable family and student yearbooks.</p>
+        </div>
+        <button class="btn btn-primary" @onclick="ShowCreateModal">
+            <span class="oi oi-plus"></span> Create Yearbook
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    @if (yearbooks.Any())
+    {
+        <div class="row g-3">
+            @foreach (var yearbook in yearbooks)
+            {
+                <div class="col-lg-4 col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between gap-2 mb-2">
+                                <span class="badge bg-secondary">@yearbook.Scope</span>
+                                <span class="text-muted small">@yearbook.SchoolYear</span>
+                            </div>
+                            <h5 class="card-title">@yearbook.Title</h5>
+                            <p class="text-muted small mb-2">@yearbook.StartDate.ToString("MM/dd/yyyy") - @yearbook.EndDate.ToString("MM/dd/yyyy")</p>
+                            <p class="mb-0">@yearbook.Pages.Count pages</p>
+                        </div>
+                        <div class="card-footer d-flex flex-wrap gap-2">
+                            <a class="btn btn-sm btn-outline-primary" href="yearbooks/@yearbook.Id">Builder</a>
+                            <a class="btn btn-sm btn-outline-secondary" href="yearbooks/@yearbook.Id/preview">Preview</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body text-center text-muted">
+                <h5>No Yearbooks</h5>
+                <p>Create a yearbook to begin building printable pages.</p>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showModal)
+{
+    <div class="modal fade show" style="display:block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <EditForm Model="@form" OnValidSubmit="CreateAsync">
+                    <DataAnnotationsValidator />
+                    <div class="modal-header">
+                        <h5 class="modal-title">Create Yearbook</h5>
+                        <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ValidationSummary />
+                        <div class="mb-3">
+                            <label class="form-label" for="yearbook-title">Title</label>
+                            <InputText id="yearbook-title" class="form-control" @bind-Value="form.Title" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="yearbook-school-year">School Year</label>
+                            <InputText id="yearbook-school-year" class="form-control" @bind-Value="form.SchoolYear" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="yearbook-start">Start</label>
+                                    <InputDate id="yearbook-start" class="form-control" @bind-Value="form.StartDate" />
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="yearbook-end">End</label>
+                                    <InputDate id="yearbook-end" class="form-control" @bind-Value="form.EndDate" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="yearbook-scope">Scope</label>
+                            <InputSelect id="yearbook-scope" class="form-select" @bind-Value="form.Scope">
+                                @foreach (var scope in Enum.GetValues<YearbookScope>())
+                                {
+                                    <option value="@scope">@scope</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        @if (form.Scope == YearbookScope.Student)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label" for="yearbook-student">Student</label>
+                                <InputSelect id="yearbook-student" class="form-select" @bind-Value="form.StudentId">
+                                    <option value="">Select Student</option>
+                                    @foreach (var student in students)
+                                    {
+                                        <option value="@student.Id">@GetStudentName(student)</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Create</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private List<Yearbook> yearbooks = new();
+    private List<Student> students = new();
+    private Yearbook form = CreateDefaultYearbook();
+    private bool showModal;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        students = (await StudentService.GetAllStudentsAsync()).ToList();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        yearbooks = (await YearbookService.GetYearbooksAsync()).ToList();
+    }
+
+    private void ShowCreateModal()
+    {
+        form = CreateDefaultYearbook();
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+    }
+
+    private async Task CreateAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            if (form.Scope == YearbookScope.Family)
+            {
+                form.StudentId = null;
+            }
+
+            await YearbookService.CreateYearbookAsync(form);
+            showModal = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private static Yearbook CreateDefaultYearbook()
+    {
+        var year = DateTime.Today.Month >= 7 ? DateTime.Today.Year : DateTime.Today.Year - 1;
+        return new Yearbook
+        {
+            FamilyId = 1,
+            Title = $"{year}-{year + 1} Homeschool Yearbook",
+            SchoolYear = $"{year}-{year + 1}",
+            StartDate = new DateTime(year, 8, 1),
+            EndDate = new DateTime(year + 1, 6, 30),
+            Scope = YearbookScope.Family
+        };
+    }
+
+    private static string GetStudentName(Student student)
+    {
+        return $"{student.FirstName} {student.LastName}";
+    }
+}

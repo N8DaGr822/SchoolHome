@@ -1,0 +1,341 @@
+@page "/progress-reports"
+@using HomeschoolManager.Application.Services
+@inject IProgressReportService ProgressReportService
+@inject IStudentService StudentService
+@inject IJSRuntime JS
+
+<PageTitle>Progress Reports - Homeschool Manager</PageTitle>
+
+<style>
+    @@media print {
+        .no-print,
+        .sidebar,
+        .top-row {
+            display: none !important;
+        }
+
+        .content {
+            padding: 0 !important;
+        }
+
+        .print-report {
+            box-shadow: none !important;
+            border: 0 !important;
+        }
+
+        body {
+            background: white !important;
+        }
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
+        <div>
+            <h1 class="mb-1">Progress Reports</h1>
+            <p class="text-muted mb-0">Generate a printable student report for a selected date range.</p>
+        </div>
+        <button type="button" class="btn btn-outline-primary" disabled="@(report is null)" @onclick="PrintAsync">
+            <span class="oi oi-print"></span> Print
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger no-print" role="alert">@errorMessage</div>
+    }
+
+    <div class="card mb-3 no-print">
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label" for="report-student">Student</label>
+                    <select id="report-student" class="form-select" @bind="selectedStudentId">
+                        <option value="0">Select Student</option>
+                        @foreach (var student in students)
+                        {
+                            <option value="@student.Id">@GetStudentName(student)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="report-start">Start</label>
+                    <InputDate id="report-start" class="form-control" @bind-Value="startDate" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="report-end">End</label>
+                    <InputDate id="report-end" class="form-control" @bind-Value="endDate" />
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-primary w-100" @onclick="GenerateAsync">Generate</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="card">
+            <div class="card-body text-muted">Generating report...</div>
+        </div>
+    }
+    else if (report is not null)
+    {
+        <article class="card print-report">
+            <div class="card-body">
+                <header class="border-bottom pb-3 mb-3">
+                    <div class="d-flex flex-wrap justify-content-between gap-3">
+                        <div>
+                            <h1 class="h2 mb-1">Progress Report</h1>
+                            <div class="text-muted">@GetStudentName(report.Student) / @report.Student.GradeLevel</div>
+                        </div>
+                        <div class="text-md-end">
+                            <div>@report.StartDate.ToString("MMMM d, yyyy") - @report.EndDate.ToString("MMMM d, yyyy")</div>
+                            <small class="text-muted">Generated @DateTime.Today.ToString("MMMM d, yyyy")</small>
+                        </div>
+                    </div>
+                </header>
+
+                <section class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div class="border rounded p-3 h-100">
+                            <div class="h3 mb-0">@report.Summary.CompletedAssignmentCount</div>
+                            <small class="text-muted">Assignments completed</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded p-3 h-100">
+                            <div class="h3 mb-0">@report.Summary.CompletedLessonCount</div>
+                            <small class="text-muted">Lessons completed</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded p-3 h-100">
+                            <div class="h3 mb-0">@report.Summary.TotalLearningHours.ToString("F1")</div>
+                            <small class="text-muted">Learning hours</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded p-3 h-100">
+                            <div class="h3 mb-0">@report.Summary.BestWorkItemCount</div>
+                            <small class="text-muted">Best-work items</small>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="mb-4">
+                    <h2 class="h5">Attendance</h2>
+                    <div class="row g-2 mb-2">
+                        <div class="col-sm-4"><strong>@report.Summary.AttendanceRecordCount</strong> records</div>
+                        <div class="col-sm-4"><strong>@report.Summary.PresentAttendanceCount</strong> present/partial/field trip</div>
+                        <div class="col-sm-4"><strong>@report.Summary.AbsentAttendanceCount</strong> absent</div>
+                    </div>
+                    @if (report.AttendanceRecords.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                        <th>Minutes</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var record in report.AttendanceRecords)
+                                    {
+                                        <tr>
+                                            <td>@record.Date.ToString("MM/dd/yyyy")</td>
+                                            <td>@AttendanceStatusDisplay.GetLabel(record.Status)</td>
+                                            <td>@(record.Minutes?.ToString() ?? "-")</td>
+                                            <td>@Display(record.Notes)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No attendance records in this date range.</p>
+                    }
+                </section>
+
+                <section class="mb-4">
+                    <h2 class="h5">Learning Time By Subject</h2>
+                    @if (report.LearningTimeBySubject.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Subject</th>
+                                        <th>Minutes</th>
+                                        <th>Hours</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var row in report.LearningTimeBySubject)
+                                    {
+                                        <tr>
+                                            <td>@row.Subject</td>
+                                            <td>@row.Minutes</td>
+                                            <td>@row.Hours.ToString("F1")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No learning time entries in this date range.</p>
+                    }
+                </section>
+
+                <section class="row g-4 mb-4">
+                    <div class="col-lg-6">
+                        <h2 class="h5">Completed Assignments</h2>
+                        @if (report.CompletedAssignments.Any())
+                        {
+                            <ul class="list-group list-group-flush">
+                                @foreach (var assignment in report.CompletedAssignments)
+                                {
+                                    <li class="list-group-item px-0">
+                                        <strong>@assignment.Title</strong>
+                                        <div class="small text-muted">@Display(assignment.Subject) / @assignment.DueDate.ToString("MM/dd/yyyy")</div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p class="text-muted">No completed assignments in this date range.</p>
+                        }
+                    </div>
+                    <div class="col-lg-6">
+                        <h2 class="h5">Completed Lessons</h2>
+                        @if (report.CompletedLessons.Any())
+                        {
+                            <ul class="list-group list-group-flush">
+                                @foreach (var lesson in report.CompletedLessons)
+                                {
+                                    <li class="list-group-item px-0">
+                                        <strong>@lesson.Title</strong>
+                                        <div class="small text-muted">@lesson.PlannedDate.ToString("MM/dd/yyyy") / @lesson.DurationMinutes minutes</div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <p class="text-muted">No completed lessons in this date range.</p>
+                        }
+                    </div>
+                </section>
+
+                <section class="mb-4">
+                    <h2 class="h5">Portfolio Best Work</h2>
+                    @if (report.BestWorkItems.Any())
+                    {
+                        <div class="row g-3">
+                            @foreach (var item in report.BestWorkItems)
+                            {
+                                <div class="col-md-6">
+                                    <div class="border rounded p-3 h-100">
+                                        <strong>@item.Title</strong>
+                                        <div class="small text-muted">@item.Date.ToString("MM/dd/yyyy") / @item.Type</div>
+                                        <div>@Display(item.Description)</div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No best-work portfolio items in this date range.</p>
+                    }
+                </section>
+
+                <section>
+                    <h2 class="h5">Notes</h2>
+                    @if (report.Notes.Any())
+                    {
+                        <ul class="list-group list-group-flush">
+                            @foreach (var note in report.Notes)
+                            {
+                                <li class="list-group-item px-0">
+                                    <strong>@note.Date.ToString("MM/dd/yyyy") @note.Source:</strong> @note.Text
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No notes available for this date range.</p>
+                    }
+                </section>
+            </div>
+        </article>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body text-center text-muted">
+                <h5>No Report Generated</h5>
+                <p>Select a student and date range to create a printable progress report.</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Student> students = new();
+    private ProgressReport? report;
+    private int selectedStudentId;
+    private DateTime startDate = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime endDate = DateTime.Today;
+    private bool isLoading;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        students = (await StudentService.GetAllStudentsAsync()).ToList();
+        selectedStudentId = students.FirstOrDefault()?.Id ?? 0;
+    }
+
+    private async Task GenerateAsync()
+    {
+        errorMessage = null;
+        isLoading = true;
+        try
+        {
+            report = await ProgressReportService.GenerateAsync(selectedStudentId, startDate, endDate);
+        }
+        catch (Exception ex)
+        {
+            report = null;
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task PrintAsync()
+    {
+        await JS.InvokeVoidAsync("window.print");
+    }
+
+    private static string GetStudentName(Student student)
+    {
+        return $"{student.FirstName} {student.LastName}";
+    }
+
+    private static string Display(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+}

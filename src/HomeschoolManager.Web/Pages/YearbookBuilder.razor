@@ -1,0 +1,339 @@
+@page "/yearbooks/{Id:int}"
+@using HomeschoolManager.Application.Services
+@inject IYearbookService YearbookService
+@inject IJSRuntime JS
+
+<PageTitle>Yearbook Builder - Homeschool Manager</PageTitle>
+
+<style>
+    .yearbook-portfolio-thumb {
+        aspect-ratio: 4 / 3;
+        width: 100%;
+        object-fit: cover;
+        background: #f8f9fa;
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <a href="yearbooks" class="btn btn-outline-secondary btn-sm mb-2"><span class="oi oi-arrow-left"></span> Yearbooks</a>
+            <h1 class="mb-1">@yearbook?.Title</h1>
+            <p class="text-muted mb-0">Edit page text, select portfolio photos, reorder pages, and preview the yearbook.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-outline-primary" @onclick="AddPageAsync">Add Page</button>
+            <button type="button" class="btn btn-primary" @onclick="SaveAllAsync">Save Changes</button>
+            <a class="btn btn-outline-secondary" href="yearbooks/@Id/preview">Preview</a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="alert alert-success" role="status">@statusMessage</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    @if (yearbook is null)
+    {
+        <div class="card"><div class="card-body text-muted">Loading yearbook...</div></div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var editor in pageEditors.OrderBy(e => e.Page.SortOrder))
+            {
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-secondary">#@(editor.Page.SortOrder + 1)</span>
+                                @if (editor.Page.IsHidden)
+                                {
+                                    <span class="badge bg-warning text-dark">Hidden</span>
+                                }
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => MoveAsync(editor.Page, -1)">Up</button>
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => MoveAsync(editor.Page, 1)">Down</button>
+                                <button class="btn btn-sm btn-outline-warning" @onclick="() => ToggleHidden(editor.Page)">
+                                    @(editor.Page.IsHidden ? "Show" : "Hide")
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeletePageAsync(editor.Page)">Delete</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Page Title</label>
+                                <InputText class="form-control" @bind-Value="editor.Page.Title" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Page Text</label>
+                                <InputTextArea class="form-control" rows="6" @bind-Value="editor.Body" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Layout</label>
+                                <PageCanvas Page="editor.Page" @bind-SelectedElementId="editor.SelectedElementId" />
+                            </div>
+                            <div>
+                                <label class="form-label">Images & Portfolio Items On This Page</label>
+                                @if (portfolioItems.Any())
+                                {
+                                    <div class="row g-2">
+                                        @foreach (var item in portfolioItems)
+                                        {
+                                            <div class="col-lg-4 col-md-6">
+                                                <label class="border rounded p-3 d-block h-100">
+                                                    @if (GetImageSource(item) is { } imageSource)
+                                                    {
+                                                        <img src="@imageSource" alt="@item.Title" class="yearbook-portfolio-thumb rounded mb-2" />
+                                                    }
+                                                    <div class="form-check">
+                                                        <input class="form-check-input"
+                                                               type="checkbox"
+                                                               checked="@editor.SelectedPortfolioItemIds.Contains(item.Id)"
+                                                               @onchange="args => TogglePortfolioItem(editor, item.Id, args)" />
+                                                        <span class="form-check-label fw-semibold">@item.Title</span>
+                                                    </div>
+                                                    <div class="small text-muted">@item.Date.ToString("MM/dd/yyyy") / @item.Type</div>
+                                                    <div class="small">@item.Description</div>
+                                                    @if (!string.IsNullOrWhiteSpace(item.OriginalFileName))
+                                                    {
+                                                        <div class="small text-muted mt-1">@item.OriginalFileName</div>
+                                                    }
+                                                </label>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="text-muted mb-0">No portfolio items are available for this yearbook's student/date range.</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Yearbook? yearbook;
+    private List<PageEditor> pageEditors = new();
+    private List<PortfolioItem> portfolioItems = new();
+    private string? statusMessage;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        yearbook = await YearbookService.GetYearbookByIdAsync(Id);
+        if (yearbook is null)
+        {
+            pageEditors.Clear();
+            portfolioItems.Clear();
+            errorMessage = "Yearbook was not found.";
+            return;
+        }
+
+        foreach (var page in yearbook.Pages)
+        {
+            YearbookPageMigration.EnsureElements(page, yearbook.Assets);
+        }
+
+        var selectedByPage = yearbook.Assets
+            .Where(a => a.YearbookPageId.HasValue && a.PortfolioItemId.HasValue)
+            .GroupBy(a => a.YearbookPageId!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(a => a.PortfolioItemId!.Value).ToHashSet());
+        pageEditors = yearbook?.Pages
+            .OrderBy(p => p.SortOrder)
+            .Select(p => new PageEditor(
+                p,
+                HomeschoolManager.Application.Services.YearbookService.GetPlainText(p),
+                selectedByPage.TryGetValue(p.Id, out var selectedIds) ? selectedIds : new HashSet<int>()))
+            .ToList() ?? new List<PageEditor>();
+        portfolioItems = (await YearbookService.GetPortfolioCandidatesAsync(Id)).ToList();
+    }
+
+    private async Task AddPageAsync()
+    {
+        ClearMessages();
+        try
+        {
+            await YearbookService.AddCustomPageAsync(Id);
+            await LoadAsync();
+            statusMessage = "Page added.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task SaveAllAsync()
+    {
+        ClearMessages();
+        try
+        {
+            var pages = pageEditors.Select(e =>
+            {
+                HomeschoolManager.Application.Services.YearbookService.SetPlainText(e.Page, e.Body);
+                return e.Page;
+            }).ToList();
+            await YearbookService.SavePagesAsync(Id, pages);
+            await YearbookService.SavePortfolioSelectionsAsync(
+                Id,
+                pageEditors.ToDictionary(e => e.Page.Id, e => e.SelectedPortfolioItemIds.AsEnumerable()));
+            await LoadAsync();
+            statusMessage = "Yearbook saved.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task MoveAsync(YearbookPage page, int direction)
+    {
+        ClearMessages();
+        await YearbookService.MovePageAsync(Id, page.Id, direction);
+        await LoadAsync();
+    }
+
+    private void ToggleHidden(YearbookPage page)
+    {
+        page.IsHidden = !page.IsHidden;
+    }
+
+    private static void TogglePortfolioItem(PageEditor editor, int itemId, ChangeEventArgs args)
+    {
+        if (args.Value is bool selected && selected)
+        {
+            editor.SelectedPortfolioItemIds.Add(itemId);
+        }
+        else
+        {
+            editor.SelectedPortfolioItemIds.Remove(itemId);
+        }
+    }
+
+    private async Task DeletePageAsync(YearbookPage page)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete page \"{page.Title}\"?");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await YearbookService.DeletePageAsync(page.Id);
+        await LoadAsync();
+    }
+
+    private void ClearMessages()
+    {
+        statusMessage = null;
+        errorMessage = null;
+    }
+
+    private static string? GetImageSource(PortfolioItem item)
+    {
+        var source = !string.IsNullOrWhiteSpace(item.StoredFilePath)
+            ? item.StoredFilePath
+            : item.ExternalUrl;
+
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return null;
+        }
+
+        if (IsImageUrl(source))
+        {
+            return source;
+        }
+
+        if (File.Exists(source) && IsImageFile(source, item.ContentType))
+        {
+            var contentType = GetContentType(source, item.ContentType);
+            var bytes = File.ReadAllBytes(source);
+            return $"data:{contentType};base64,{Convert.ToBase64String(bytes)}";
+        }
+
+        return null;
+    }
+
+    private static bool IsImageUrl(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || !Uri.TryCreate(value, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return uri.Scheme.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+            && IsImageFile(uri.AbsolutePath, contentType: null);
+    }
+
+    private static bool IsImageFile(string path, string? contentType)
+    {
+        if (!string.IsNullOrWhiteSpace(contentType) && contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var normalized = path.ToLowerInvariant();
+        return normalized.EndsWith(".jpg") || normalized.EndsWith(".jpeg") || normalized.EndsWith(".png") || normalized.EndsWith(".gif") || normalized.EndsWith(".webp");
+    }
+
+    private static string GetContentType(string path, string? contentType)
+    {
+        if (!string.IsNullOrWhiteSpace(contentType) && contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            return contentType;
+        }
+
+        var normalized = path.ToLowerInvariant();
+        if (normalized.EndsWith(".png"))
+        {
+            return "image/png";
+        }
+
+        if (normalized.EndsWith(".gif"))
+        {
+            return "image/gif";
+        }
+
+        if (normalized.EndsWith(".webp"))
+        {
+            return "image/webp";
+        }
+
+        return "image/jpeg";
+    }
+
+    private sealed class PageEditor
+    {
+        public PageEditor(YearbookPage page, string body, HashSet<int> selectedPortfolioItemIds)
+        {
+            Page = page;
+            Body = body;
+            SelectedPortfolioItemIds = selectedPortfolioItemIds;
+        }
+
+        public YearbookPage Page { get; }
+        public string Body { get; set; }
+        public HashSet<int> SelectedPortfolioItemIds { get; }
+        public Guid? SelectedElementId { get; set; }
+    }
+}

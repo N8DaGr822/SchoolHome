@@ -42,4 +42,7 @@ public class Student
     public List<Grade> Grades { get; set; } = new();
     public List<AttendanceRecord> AttendanceRecords { get; set; } = new();
     public List<LearningTimeEntry> LearningTimeEntries { get; set; } = new();
+    public List<PortfolioItem> PortfolioItems { get; set; } = new();
+    public List<StudentCurriculum> StudentCurricula { get; set; } = new();
+    public List<ParentNote> ParentNotes { get; set; } = new();
 }

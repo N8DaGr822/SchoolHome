@@ -132,6 +132,26 @@ internal static class SeedData
             [
                 new() { Id = 1, StudentId = 1, SubjectId = 1, Subject = "Math", Date = DateTime.Today.AddDays(-1), Minutes = 45, Notes = "Algebra practice.", Source = LearningTimeSource.Manual, CreatedAt = DateTime.UtcNow },
                 new() { Id = 2, StudentId = 2, SubjectId = 4, Subject = "Science", Date = DateTime.Today.AddDays(-1), Minutes = 60, Notes = "Lab reading.", Source = LearningTimeSource.Manual, CreatedAt = DateTime.UtcNow }
+            ],
+            PortfolioItems =
+            [
+                new() { Id = 1, StudentId = 1, SubjectId = 1, Subject = "Math", Type = PortfolioItemType.Note, Title = "Algebra Reflection", Description = "Student explained how to simplify expressions.", Date = DateTime.Today.AddDays(-1), IsBestWork = true, AssignmentId = 1, Tags = "reflection,best-work", CreatedAt = DateTime.UtcNow },
+                new() { Id = 2, StudentId = 2, SubjectId = 4, Subject = "Science", Type = PortfolioItemType.Link, Title = "Cell Diagram Resource", Description = "Reference used for biology study.", ExternalUrl = "https://example.com/cell-diagram", Date = DateTime.Today.AddDays(-2), Tags = "biology", CreatedAt = DateTime.UtcNow }
+            ],
+            CurriculumResources =
+            [
+                new() { Id = 1, SubjectId = 1, Subject = "Math", Title = "Algebra Foundations", Description = "Full-year algebra spine with practice lessons.", ResourceType = CurriculumResourceType.Book, Publisher = "Homeschool Press", GradeLevel = "8th", CreatedAt = DateTime.UtcNow },
+                new() { Id = 2, SubjectId = 4, Subject = "Science", Title = "Cell Biology Lab Series", Description = "Hands-on labs and guided videos for cell structure.", ResourceType = CurriculumResourceType.OnlineCourse, Publisher = "Open Science", Url = "https://example.com/cell-biology", GradeLevel = "9th", CreatedAt = DateTime.UtcNow }
+            ],
+            StudentCurricula =
+            [
+                new() { Id = 1, StudentId = 1, CurriculumResourceId = 1, Status = CurriculumStatus.InProgress, CurrentUnit = "Unit 2", CurrentLesson = "Linear expressions", PercentComplete = 35, StartDate = DateTime.Today.AddDays(-30), TargetEndDate = DateTime.Today.AddMonths(4), CreatedAt = DateTime.UtcNow },
+                new() { Id = 2, StudentId = 2, CurriculumResourceId = 2, Status = CurriculumStatus.NotStarted, PercentComplete = 0, StartDate = DateTime.Today, TargetEndDate = DateTime.Today.AddMonths(2), CreatedAt = DateTime.UtcNow }
+            ],
+            ParentNotes =
+            [
+                new() { Id = 1, StudentId = 1, SubjectId = 1, AssignmentId = 1, Category = ParentNoteCategory.Breakthrough, Title = "Algebra clicked", Content = "Emma explained variables without prompting today.", NoteDate = DateTime.Today.AddDays(-1), CreatedAt = DateTime.UtcNow },
+                new() { Id = 2, StudentId = 2, SubjectId = 4, Category = ParentNoteCategory.Planning, Title = "Science pacing", Content = "Plan shorter lab blocks this week.", NoteDate = DateTime.Today, CreatedAt = DateTime.UtcNow }
             ]
         };
     }

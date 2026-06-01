@@ -1,0 +1,416 @@
+@page "/portfolio"
+@using HomeschoolManager.Application.Services
+@using HomeschoolManager.Core.Entities
+@using HomeschoolManager.Core.Interfaces
+@inject IPortfolioService PortfolioService
+@inject IStudentService StudentService
+@inject ICourseService CourseService
+@inject IAssignmentService AssignmentService
+@inject ILessonPlanService LessonPlanService
+
+<PageTitle>Portfolio - Homeschool Manager</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="mb-1">Student Portfolio</h1>
+            <p class="text-muted mb-0">Collect best work, files, links, notes, and lesson evidence.</p>
+        </div>
+        <button type="button" class="btn btn-primary" @onclick="ShowAddModal">
+            <span class="oi oi-plus"></span> Add Item
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="alert alert-success" role="status">@statusMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label" for="portfolio-student-filter">Student</label>
+                    <select id="portfolio-student-filter" class="form-select" @bind="filterStudentId">
+                        <option value="0">All</option>
+                        @foreach (var student in students)
+                        {
+                            <option value="@student.Id">@GetStudentName(student)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="portfolio-subject-filter">Subject</label>
+                    <select id="portfolio-subject-filter" class="form-select" @bind="filterSubjectId">
+                        <option value="0">All</option>
+                        @foreach (var course in courses)
+                        {
+                            <option value="@course.Id">@GetSubjectName(course)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="portfolio-type-filter">Type</label>
+                    <select id="portfolio-type-filter" class="form-select" @bind="filterType">
+                        <option value="">All</option>
+                        @foreach (var type in Enum.GetValues<PortfolioItemType>())
+                        {
+                            <option value="@type">@GetTypeLabel(type)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="portfolio-start-filter">Start</label>
+                    <InputDate id="portfolio-start-filter" class="form-control" @bind-Value="filterStart" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="portfolio-end-filter">End</label>
+                    <InputDate id="portfolio-end-filter" class="form-control" @bind-Value="filterEnd" />
+                </div>
+                <div class="col-md-2">
+                    <div class="form-check mb-2">
+                        <InputCheckbox id="portfolio-best-filter" class="form-check-input" @bind-Value="bestWorkOnly" />
+                        <label class="form-check-label" for="portfolio-best-filter">Best work</label>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary w-100" @onclick="LoadItemsAsync">Apply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="card">
+            <div class="card-body text-muted">Loading portfolio...</div>
+        </div>
+    }
+    else if (items.Any())
+    {
+        <div class="row g-3">
+            @foreach (var item in items)
+            {
+                <div class="col-xl-3 col-lg-4 col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between gap-2 mb-2">
+                                <span class="badge bg-secondary">@GetTypeLabel(item.Type)</span>
+                                @if (item.IsBestWork)
+                                {
+                                    <span class="badge bg-warning text-dark">Best</span>
+                                }
+                            </div>
+                            <h5 class="card-title">@item.Title</h5>
+                            <p class="text-muted small mb-2">@GetStudentName(item.StudentId) / @GetSubjectName(item.SubjectId)</p>
+                            <p class="small">@item.Description</p>
+                            <div class="small text-muted">@item.Date.ToString("MM/dd/yyyy")</div>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between align-items-center">
+                            <small class="text-muted">@GetAttachmentLabel(item)</small>
+                            <a class="btn btn-sm btn-outline-primary" href="portfolio/@item.Id">Details</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body text-center text-muted">
+                <h5>No Portfolio Items</h5>
+                <p>Add a portfolio item or adjust the filters.</p>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showModal)
+{
+    <div class="modal fade show" style="display:block;" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <EditForm Model="@form" OnValidSubmit="SaveItemAsync">
+                    <DataAnnotationsValidator />
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Portfolio Item</h5>
+                        <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ValidationSummary />
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label class="form-label" for="portfolio-title">Title</label>
+                                    <InputText id="portfolio-title" class="form-control" @bind-Value="form.Title" />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="portfolio-type">Type</label>
+                                    <InputSelect id="portfolio-type" class="form-select" @bind-Value="form.Type">
+                                        @foreach (var type in Enum.GetValues<PortfolioItemType>())
+                                        {
+                                            <option value="@type">@GetTypeLabel(type)</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="portfolio-student">Student</label>
+                                    <InputSelect id="portfolio-student" class="form-select" @bind-Value="form.StudentId">
+                                        <option value="0">Select Student</option>
+                                        @foreach (var student in students)
+                                        {
+                                            <option value="@student.Id">@GetStudentName(student)</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="portfolio-subject">Subject</label>
+                                    <InputSelect id="portfolio-subject" class="form-select" @bind-Value="form.SubjectId">
+                                        <option value="0">Select Subject</option>
+                                        @foreach (var course in courses)
+                                        {
+                                            <option value="@course.Id">@GetSubjectName(course)</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="portfolio-date">Date</label>
+                                    <InputDate id="portfolio-date" class="form-control" @bind-Value="form.Date" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="portfolio-description">Description</label>
+                            <InputTextArea id="portfolio-description" class="form-control" rows="3" @bind-Value="form.Description" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="portfolio-url">URL</label>
+                            <InputText id="portfolio-url" class="form-control" @bind-Value="form.ExternalUrl" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="portfolio-notes">Notes</label>
+                            <InputTextArea id="portfolio-notes" class="form-control" rows="3" @bind-Value="form.Notes" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="portfolio-file">File</label>
+                            <InputFile id="portfolio-file" class="form-control" OnChange="OnFileSelected" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="portfolio-assignment">Assignment</label>
+                                    <InputSelect id="portfolio-assignment" class="form-select" @bind-Value="form.AssignmentId">
+                                        <option value="">None</option>
+                                        @foreach (var assignment in assignments)
+                                        {
+                                            <option value="@assignment.Id">@assignment.Title</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="portfolio-lesson">Lesson</label>
+                                    <InputSelect id="portfolio-lesson" class="form-select" @bind-Value="form.LessonPlanId">
+                                        <option value="">None</option>
+                                        @foreach (var lesson in lessonPlans)
+                                        {
+                                            <option value="@lesson.Id">@lesson.Title</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row align-items-end">
+                            <div class="col-md-8">
+                                <label class="form-label" for="portfolio-tags">Tags</label>
+                                <InputText id="portfolio-tags" class="form-control" @bind-Value="form.Tags" />
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check mb-2">
+                                    <InputCheckbox id="portfolio-best" class="form-check-input" @bind-Value="form.IsBestWork" />
+                                    <label class="form-check-label" for="portfolio-best">Best work</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Item</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private const long MaxUploadBytes = 25 * 1024 * 1024;
+    private List<PortfolioItem> items = new();
+    private List<Student> students = new();
+    private List<Course> courses = new();
+    private List<Assignment> assignments = new();
+    private List<LessonPlan> lessonPlans = new();
+    private PortfolioItem form = CreateDefaultItem();
+    private IBrowserFile? selectedFile;
+    private int filterStudentId;
+    private int filterSubjectId;
+    private string filterType = string.Empty;
+    private DateTime? filterStart;
+    private DateTime? filterEnd;
+    private bool bestWorkOnly;
+    private bool isLoading = true;
+    private bool showModal;
+    private string? statusMessage;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        students = (await StudentService.GetAllStudentsAsync()).ToList();
+        courses = (await CourseService.GetAllCoursesAsync()).ToList();
+        assignments = (await AssignmentService.GetAllAssignmentsAsync()).ToList();
+        lessonPlans = (await LessonPlanService.GetAllLessonPlansAsync()).ToList();
+        await LoadItemsAsync();
+    }
+
+    private async Task LoadItemsAsync()
+    {
+        isLoading = true;
+        ClearMessages();
+        try
+        {
+            var type = Enum.TryParse<PortfolioItemType>(filterType, out var parsedType) ? parsedType : (PortfolioItemType?)null;
+            items = (await PortfolioService.GetItemsAsync(new PortfolioFilter(
+                filterStudentId == 0 ? null : filterStudentId,
+                filterSubjectId == 0 ? null : filterSubjectId,
+                type,
+                filterStart,
+                filterEnd,
+                bestWorkOnly))).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowAddModal()
+    {
+        form = CreateDefaultItem();
+        form.StudentId = students.FirstOrDefault()?.Id ?? 0;
+        form.SubjectId = courses.FirstOrDefault()?.Id ?? 0;
+        selectedFile = null;
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs args)
+    {
+        selectedFile = args.File;
+    }
+
+    private async Task SaveItemAsync()
+    {
+        ClearMessages();
+        try
+        {
+            form.Subject = courses.FirstOrDefault(c => c.Id == form.SubjectId) is { } course
+                ? GetSubjectName(course)
+                : form.Subject;
+            PortfolioUpload? upload = null;
+            if (selectedFile is not null)
+            {
+                upload = new PortfolioUpload(
+                    selectedFile.OpenReadStream(MaxUploadBytes),
+                    selectedFile.Name,
+                    selectedFile.ContentType);
+            }
+
+            await PortfolioService.CreateItemAsync(form, upload);
+            statusMessage = "Portfolio item saved.";
+            showModal = false;
+            await LoadItemsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private string GetStudentName(int studentId)
+    {
+        return students.FirstOrDefault(s => s.Id == studentId) is { } student ? GetStudentName(student) : "Unknown student";
+    }
+
+    private static string GetStudentName(Student student)
+    {
+        return $"{student.FirstName} {student.LastName}";
+    }
+
+    private string GetSubjectName(int subjectId)
+    {
+        return courses.FirstOrDefault(c => c.Id == subjectId) is { } course ? GetSubjectName(course) : "Unknown subject";
+    }
+
+    private static string GetSubjectName(Course course)
+    {
+        return string.IsNullOrWhiteSpace(course.Subject) ? course.Name : course.Subject;
+    }
+
+    private static string GetTypeLabel(PortfolioItemType type)
+    {
+        return type switch
+        {
+            PortfolioItemType.Pdf => "PDF",
+            _ => type.ToString()
+        };
+    }
+
+    private static string GetAttachmentLabel(PortfolioItem item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.OriginalFileName))
+        {
+            return item.OriginalFileName;
+        }
+
+        return !string.IsNullOrWhiteSpace(item.ExternalUrl) ? "URL" : item.Tags;
+    }
+
+    private void ClearMessages()
+    {
+        statusMessage = null;
+        errorMessage = null;
+    }
+
+    private static PortfolioItem CreateDefaultItem()
+    {
+        return new PortfolioItem
+        {
+            Date = DateTime.Today,
+            Type = PortfolioItemType.Note
+        };
+    }
+}

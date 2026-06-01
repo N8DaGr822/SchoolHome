@@ -1,0 +1,127 @@
+@page "/portfolio/{Id:int}"
+@using HomeschoolManager.Application.Services
+@using HomeschoolManager.Core.Entities
+@inject IPortfolioService PortfolioService
+@inject IStudentService StudentService
+@inject ICourseService CourseService
+
+<PageTitle>Portfolio Item - Homeschool Manager</PageTitle>
+
+<div class="container-fluid">
+    <div class="mb-3">
+        <a href="portfolio" class="btn btn-outline-secondary btn-sm">
+            <span class="oi oi-arrow-left"></span> Portfolio
+        </a>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+    else if (item is null)
+    {
+        <div class="card">
+            <div class="card-body text-muted">Loading portfolio item...</div>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-header d-flex flex-wrap justify-content-between align-items-start gap-2">
+                <div>
+                    <h1 class="h3 mb-1">@item.Title</h1>
+                    <div class="text-muted">@GetStudentName(item.StudentId) / @GetSubjectName(item.SubjectId) / @item.Date.ToString("MM/dd/yyyy")</div>
+                </div>
+                <div class="d-flex gap-2">
+                    <span class="badge bg-secondary">@item.Type</span>
+                    @if (item.IsBestWork)
+                    {
+                        <span class="badge bg-warning text-dark">Best Work</span>
+                    }
+                </div>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-3">Description</dt>
+                    <dd class="col-sm-9">@Display(item.Description)</dd>
+                    <dt class="col-sm-3">Notes</dt>
+                    <dd class="col-sm-9">@Display(item.Notes)</dd>
+                    <dt class="col-sm-3">Tags</dt>
+                    <dd class="col-sm-9">@Display(item.Tags)</dd>
+                    <dt class="col-sm-3">Assignment</dt>
+                    <dd class="col-sm-9">@(item.Assignment?.Title ?? item.AssignmentId?.ToString() ?? "-")</dd>
+                    <dt class="col-sm-3">Lesson</dt>
+                    <dd class="col-sm-9">@(item.LessonPlan?.Title ?? item.LessonPlanId?.ToString() ?? "-")</dd>
+                    <dt class="col-sm-3">URL</dt>
+                    <dd class="col-sm-9">
+                        @if (!string.IsNullOrWhiteSpace(item.ExternalUrl))
+                        {
+                            <a href="@item.ExternalUrl" target="_blank" rel="noopener noreferrer">@item.ExternalUrl</a>
+                        }
+                        else
+                        {
+                            <span>-</span>
+                        }
+                    </dd>
+                    <dt class="col-sm-3">File</dt>
+                    <dd class="col-sm-9">
+                        @if (!string.IsNullOrWhiteSpace(item.StoredFilePath))
+                        {
+                            <div>@item.OriginalFileName</div>
+                            <small class="text-muted">@item.StoredFilePath</small>
+                        }
+                        else
+                        {
+                            <span>-</span>
+                        }
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private PortfolioItem? item;
+    private List<Student> students = new();
+    private List<Course> courses = new();
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            students = (await StudentService.GetAllStudentsAsync()).ToList();
+            courses = (await CourseService.GetAllCoursesAsync()).ToList();
+            item = await PortfolioService.GetItemByIdAsync(Id);
+            if (item is null)
+            {
+                errorMessage = "Portfolio item was not found.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private string GetStudentName(int studentId)
+    {
+        var student = students.FirstOrDefault(s => s.Id == studentId);
+        return student == null ? "Unknown student" : $"{student.FirstName} {student.LastName}";
+    }
+
+    private string GetSubjectName(int subjectId)
+    {
+        var course = courses.FirstOrDefault(c => c.Id == subjectId);
+        return course == null ? "Unknown subject" : string.IsNullOrWhiteSpace(course.Subject) ? course.Name : course.Subject;
+    }
+
+    private static string Display(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+}

@@ -1,0 +1,77 @@
+<div class="@ElementClass"
+     style="@ElementStyle"
+     data-element-id="@Element.Id"
+     @onclick="SelectAsync"
+     @onclick:stopPropagation="true">
+    @if (Element.Type == PageElementType.Photo)
+    {
+        @if (!string.IsNullOrWhiteSpace(Element.Src))
+        {
+            <img src="@Element.Src"
+                 alt=""
+                 draggable="false"
+                 class="editable-element-photo"
+                 style="@PhotoStyle" />
+        }
+        else
+        {
+            <div class="editable-element-placeholder">
+                <span class="oi oi-image" aria-hidden="true"></span>
+            </div>
+        }
+    }
+    else if (Element.Type == PageElementType.Text)
+    {
+        <textarea class="editable-element-text"
+                  value="@Element.Text"
+                  style="@TextStyle"
+                  spellcheck="true"
+                  @oninput="UpdateText"
+                  @onclick:stopPropagation="true"></textarea>
+    }
+
+    @if (IsSelected)
+    {
+        <span class="resize-handle resize-handle-nw" data-resize-handle="nw" @onclick:stopPropagation="true"></span>
+        <span class="resize-handle resize-handle-n" data-resize-handle="n" @onclick:stopPropagation="true"></span>
+        <span class="resize-handle resize-handle-ne" data-resize-handle="ne" @onclick:stopPropagation="true"></span>
+        <span class="resize-handle resize-handle-e" data-resize-handle="e" @onclick:stopPropagation="true"></span>
+        <span class="resize-handle resize-handle-se" data-resize-handle="se" @onclick:stopPropagation="true"></span>
+        <span class="resize-handle resize-handle-s" data-resize-handle="s" @onclick:stopPropagation="true"></span>
+        <span class="resize-handle resize-handle-sw" data-resize-handle="sw" @onclick:stopPropagation="true"></span>
+        <span class="resize-handle resize-handle-w" data-resize-handle="w" @onclick:stopPropagation="true"></span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public PageElement Element { get; set; } = null!;
+
+    [Parameter]
+    public bool IsSelected { get; set; }
+
+    [Parameter]
+    public EventCallback<PageElement> OnSelected { get; set; }
+
+    private string ElementClass => IsSelected
+        ? "editable-element editable-element-selected"
+        : "editable-element";
+
+    private string ElementStyle =>
+        $"left: {Element.X}px; top: {Element.Y}px; width: {Element.Width}px; height: {Element.Height}px; transform: rotate({Element.Rotation}deg); z-index: {Element.ZIndex};";
+
+    private string PhotoStyle => $"object-fit: {Element.ObjectFit};";
+
+    private string TextStyle =>
+        $"font-size: {Element.FontSize}px; font-family: {Element.FontFamily}; font-weight: {Element.FontWeight}; color: {Element.Color}; text-align: {Element.TextAlign};";
+
+    private async Task SelectAsync()
+    {
+        await OnSelected.InvokeAsync(Element);
+    }
+
+    private void UpdateText(ChangeEventArgs args)
+    {
+        Element.Text = args.Value?.ToString();
+    }
+}

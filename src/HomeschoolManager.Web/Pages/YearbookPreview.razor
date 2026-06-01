@@ -1,0 +1,183 @@
+@page "/yearbooks/{Id:int}/preview"
+@using HomeschoolManager.Application.Services
+@inject IYearbookService YearbookService
+@inject IJSRuntime JS
+
+<PageTitle>Yearbook Preview - Homeschool Manager</PageTitle>
+
+<style>
+    .yearbook-print-page { min-height: 9in; }
+    @@media print {
+        .no-print, .sidebar, .top-row { display: none !important; }
+        .content { padding: 0 !important; }
+        .yearbook-print-page {
+            break-after: page;
+            page-break-after: always;
+            border: 0 !important;
+            min-height: 9.5in;
+        }
+        body { background: white !important; }
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 no-print">
+        <div>
+            <a href="yearbooks/@Id" class="btn btn-outline-secondary btn-sm mb-2"><span class="oi oi-arrow-left"></span> Builder</a>
+            <h1 class="mb-1">@yearbook?.Title</h1>
+            <p class="text-muted mb-0">Printable yearbook preview.</p>
+        </div>
+        <button type="button" class="btn btn-primary" @onclick="PrintAsync">
+            <span class="oi oi-print"></span> Print
+        </button>
+    </div>
+
+    @if (yearbook is null)
+    {
+        <div class="card"><div class="card-body text-muted">Loading yearbook...</div></div>
+    }
+    else
+    {
+        @foreach (var ybPage in yearbook.Pages.Where(p => !p.IsHidden).OrderBy(p => p.SortOrder))
+        {
+            <section class="card mb-4 yearbook-print-page">
+                <div class="card-body p-5">
+                    <h1 class="display-6 border-bottom pb-3 mb-4">@ybPage.Title</h1>
+                    <div style="white-space: pre-wrap;">@HomeschoolManager.Application.Services.YearbookService.GetPlainText(ybPage)</div>
+                    @if (GetPageAssets(ybPage.Id).Any())
+                    {
+                        <div class="row g-3 mt-4">
+                            @foreach (var asset in GetPageAssets(ybPage.Id))
+                            {
+                                <div class="col-md-6">
+                                    <div class="border rounded p-3 h-100">
+                                        @if (GetImageSource(asset) is { } imageSource)
+                                        {
+                                            <img src="@imageSource" alt="@asset.Title" class="img-fluid rounded mb-2" />
+                                        }
+                                        <h2 class="h5">@asset.Title</h2>
+                                        <p class="mb-1">@Display(asset.Caption)</p>
+                                        @if (!string.IsNullOrWhiteSpace(asset.SourcePath) && GetImageSource(asset) is null)
+                                        {
+                                            <small class="text-muted">@asset.SourcePath</small>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Yearbook? yearbook;
+
+    protected override async Task OnInitializedAsync()
+    {
+        yearbook = await YearbookService.GetYearbookByIdAsync(Id);
+        if (yearbook is not null)
+        {
+            foreach (var page in yearbook.Pages)
+            {
+                YearbookPageMigration.EnsureElements(page, yearbook.Assets);
+            }
+        }
+    }
+
+    private async Task PrintAsync()
+    {
+        await JS.InvokeVoidAsync("window.print");
+    }
+
+    private IEnumerable<YearbookAsset> GetPageAssets(int pageId)
+    {
+        return yearbook?.Assets
+            .Where(a => a.YearbookPageId == pageId && a.PortfolioItemId.HasValue)
+            .OrderBy(a => a.Title) ?? Enumerable.Empty<YearbookAsset>();
+    }
+
+    private static string? GetImageSource(YearbookAsset asset)
+    {
+        var source = !string.IsNullOrWhiteSpace(asset.SourcePath)
+            ? asset.SourcePath
+            : asset.PortfolioItem?.StoredFilePath ?? asset.PortfolioItem?.ExternalUrl;
+        var contentType = asset.PortfolioItem?.ContentType;
+
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return null;
+        }
+
+        if (IsImageUrl(source))
+        {
+            return source;
+        }
+
+        if (File.Exists(source) && IsImageFile(source, contentType))
+        {
+            var resolvedContentType = GetContentType(source, contentType);
+            var bytes = File.ReadAllBytes(source);
+            return $"data:{resolvedContentType};base64,{Convert.ToBase64String(bytes)}";
+        }
+
+        return null;
+    }
+
+    private static bool IsImageUrl(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || !Uri.TryCreate(value, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return uri.Scheme.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+            && IsImageFile(uri.AbsolutePath, contentType: null);
+    }
+
+    private static bool IsImageFile(string path, string? contentType)
+    {
+        if (!string.IsNullOrWhiteSpace(contentType) && contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var normalized = path.ToLowerInvariant();
+        return normalized.EndsWith(".jpg") || normalized.EndsWith(".jpeg") || normalized.EndsWith(".png") || normalized.EndsWith(".gif") || normalized.EndsWith(".webp");
+    }
+
+    private static string GetContentType(string path, string? contentType)
+    {
+        if (!string.IsNullOrWhiteSpace(contentType) && contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            return contentType;
+        }
+
+        var normalized = path.ToLowerInvariant();
+        if (normalized.EndsWith(".png"))
+        {
+            return "image/png";
+        }
+
+        if (normalized.EndsWith(".gif"))
+        {
+            return "image/gif";
+        }
+
+        if (normalized.EndsWith(".webp"))
+        {
+            return "image/webp";
+        }
+
+        return "image/jpeg";
+    }
+
+    private static string Display(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+}

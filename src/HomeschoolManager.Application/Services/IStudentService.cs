@@ -12,4 +12,4 @@ public interface IStudentService
     Task DeleteStudentAsync(int id);
     Task<IEnumerable<Assignment>> GetStudentAssignmentsAsync(int studentId);
     Task<IEnumerable<Grade>> GetStudentGradesAsync(int studentId);
-} 
+}

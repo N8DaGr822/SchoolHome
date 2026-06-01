@@ -8,4 +8,11 @@ public sealed record HomeschoolImportPreview(
     int AssignmentCount,
     int GradeCount,
     int AttendanceRecordCount,
-    int LearningTimeEntryCount);
+    int LearningTimeEntryCount,
+    int PortfolioItemCount,
+    int CurriculumResourceCount,
+    int StudentCurriculumCount,
+    int ParentNoteCount,
+    int YearbookCount,
+    int YearbookPageCount,
+    int YearbookAssetCount);

@@ -18,6 +18,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ILessonPlanRepository, JsonLessonPlanRepository>();
         services.AddScoped<IAttendanceRepository, JsonAttendanceRepository>();
         services.AddScoped<ILearningTimeRepository, JsonLearningTimeRepository>();
+        services.AddScoped<IPortfolioRepository, JsonPortfolioRepository>();
+        services.AddScoped<ICurriculumResourceRepository, JsonCurriculumResourceRepository>();
+        services.AddScoped<IStudentCurriculumRepository, JsonStudentCurriculumRepository>();
+        services.AddScoped<IParentNoteRepository, JsonParentNoteRepository>();
+        services.AddScoped<IYearbookRepository, JsonYearbookRepository>();
+        services.AddScoped<IPortfolioFileStorage, PortfolioFileStorage>();
 
         return services;
     }

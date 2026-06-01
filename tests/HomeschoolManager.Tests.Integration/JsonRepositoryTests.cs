@@ -1,4 +1,5 @@
 using HomeschoolManager.Core.Entities;
+using HomeschoolManager.Core.Interfaces;
 using HomeschoolManager.Infrastructure.Data;
 using HomeschoolManager.Infrastructure.Repositories;
 using Microsoft.Extensions.Configuration;
@@ -119,13 +120,357 @@ public class JsonRepositoryTests : IDisposable
         await using var stream = StreamFromString(json);
         var preview = await store.PreviewImportJsonAsync(stream);
 
-        Assert.Contains("\"schemaVersion\": 3", json);
-        Assert.Equal(3, preview.SchemaVersion);
+        Assert.Contains("\"schemaVersion\": 7", json);
+        Assert.Equal(7, preview.SchemaVersion);
         Assert.Equal(3, preview.StudentCount);
         Assert.Equal(4, preview.CourseCount);
         Assert.Equal(0, preview.LessonPlanCount);
         Assert.Equal(3, preview.AttendanceRecordCount);
         Assert.Equal(2, preview.LearningTimeEntryCount);
+        Assert.Equal(2, preview.PortfolioItemCount);
+        Assert.Equal(2, preview.CurriculumResourceCount);
+        Assert.Equal(2, preview.StudentCurriculumCount);
+        Assert.Equal(2, preview.ParentNoteCount);
+        Assert.Equal(0, preview.YearbookCount);
+        Assert.Equal(0, preview.YearbookPageCount);
+        Assert.Equal(0, preview.YearbookAssetCount);
+    }
+
+    [Fact]
+    public async Task YearbookRepository_CreatesYearbookAndSavesPages()
+    {
+        var repository = new JsonYearbookRepository(new HomeschoolDataStore(_dataFilePath));
+        var yearbook = await repository.AddAsync(new Yearbook
+        {
+            FamilyId = 1,
+            Title = "Family Yearbook",
+            SchoolYear = "2026-2027",
+            StartDate = new DateTime(2026, 8, 1),
+            EndDate = new DateTime(2027, 6, 30),
+            Scope = YearbookScope.Family
+        });
+        await repository.SavePagesAsync(yearbook.Id, new[]
+        {
+            new YearbookPage
+            {
+                YearbookId = yearbook.Id,
+                Title = "Cover",
+                SortOrder = 0,
+                ContentJson = "{\"body\":\"Hello\"}",
+                Elements = new List<PageElement>
+                {
+                    new()
+                    {
+                        Type = PageElementType.Text,
+                        X = 10,
+                        Y = 20,
+                        Width = 300,
+                        Height = 80,
+                        Text = "Hello",
+                        ZIndex = 1
+                    }
+                }
+            },
+            new YearbookPage { YearbookId = yearbook.Id, Title = "Closing", SortOrder = 1, ContentJson = "{\"body\":\"Bye\"}" }
+        });
+
+        var reloaded = await repository.GetByIdAsync(yearbook.Id);
+
+        Assert.NotNull(reloaded);
+        Assert.Equal("Family Yearbook", reloaded.Title);
+        Assert.Equal(2, reloaded.Pages.Count);
+        Assert.Equal("Cover", reloaded.Pages[0].Title);
+        Assert.Single(reloaded.Pages[0].Elements);
+        Assert.Equal(PageElementType.Text, reloaded.Pages[0].Elements[0].Type);
+        Assert.Equal("Hello", reloaded.Pages[0].Elements[0].Text);
+    }
+
+    [Fact]
+    public async Task YearbookRepository_MigratesLegacyTextAndAssetsToPageElements()
+    {
+        var store = new HomeschoolDataStore(_dataFilePath);
+        var portfolioRepository = new JsonPortfolioRepository(store);
+        var photo = await portfolioRepository.AddAsync(new PortfolioItem
+        {
+            StudentId = 1,
+            SubjectId = 1,
+            Type = PortfolioItemType.Photo,
+            Title = "Science Fair",
+            Description = "Display board photo.",
+            Date = new DateTime(2026, 5, 5),
+            ExternalUrl = "https://example.com/science-fair.jpg"
+        });
+        var repository = new JsonYearbookRepository(store);
+        var yearbook = await repository.AddAsync(new Yearbook
+        {
+            FamilyId = 1,
+            Title = "Legacy Yearbook",
+            SchoolYear = "2026-2027",
+            StartDate = new DateTime(2026, 8, 1),
+            EndDate = new DateTime(2027, 6, 30),
+            Scope = YearbookScope.Family
+        });
+        var page = await repository.AddPageAsync(new YearbookPage
+        {
+            YearbookId = yearbook.Id,
+            Title = "Legacy Page",
+            SortOrder = 0,
+            ContentJson = "{\"body\":\"Legacy page text\"}"
+        });
+        await repository.SaveAssetsAsync(yearbook.Id, new[]
+        {
+            new YearbookAsset
+            {
+                YearbookId = yearbook.Id,
+                YearbookPageId = page.Id,
+                PortfolioItemId = photo.Id,
+                Title = photo.Title,
+                SourcePath = photo.ExternalUrl,
+                Caption = photo.Description
+            }
+        });
+
+        var reloaded = await repository.GetByIdAsync(yearbook.Id);
+        var migratedPage = Assert.Single(reloaded!.Pages);
+
+        Assert.Contains(migratedPage.Elements, e => e.Type == PageElementType.Text && e.Text == "Legacy page text");
+        Assert.Contains(migratedPage.Elements, e => e.Type == PageElementType.Photo && e.Src == photo.ExternalUrl);
+        Assert.Equal(migratedPage.Elements.Select(e => e.Id).Distinct().Count(), migratedPage.Elements.Count);
+
+        YearbookPageMigration.EnsureElements(migratedPage, reloaded.Assets);
+
+        Assert.Equal(migratedPage.Elements.Select(e => e.Id).Distinct().Count(), migratedPage.Elements.Count);
+        Assert.Equal(2, migratedPage.Elements.Count);
+    }
+
+    [Fact]
+    public async Task YearbookRepository_RejectsInvalidPageJson()
+    {
+        var repository = new JsonYearbookRepository(new HomeschoolDataStore(_dataFilePath));
+        var yearbook = await repository.AddAsync(new Yearbook
+        {
+            FamilyId = 1,
+            Title = "Validation Yearbook",
+            SchoolYear = "2026-2027",
+            StartDate = new DateTime(2026, 8, 1),
+            EndDate = new DateTime(2027, 6, 30),
+            Scope = YearbookScope.Family
+        });
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repository.AddPageAsync(new YearbookPage
+            {
+                YearbookId = yearbook.Id,
+                Title = "Broken",
+                SortOrder = 0,
+                ContentJson = "{not json"
+            }));
+
+        Assert.Contains("valid JSON", exception.Message);
+    }
+
+    [Fact]
+    public async Task ParentNoteRepository_CreatesAndFiltersNotes()
+    {
+        var store = new HomeschoolDataStore(_dataFilePath);
+        var lessonRepository = new JsonLessonPlanRepository(store);
+        var lesson = await lessonRepository.AddAsync(new LessonPlan
+        {
+            FamilyId = 1,
+            StudentId = 1,
+            SubjectId = 1,
+            Title = "Note Lesson",
+            PlannedDate = new DateTime(2026, 5, 10),
+            EstimatedMinutes = 30
+        });
+        var repository = new JsonParentNoteRepository(store);
+        var note = await repository.AddAsync(new ParentNote
+        {
+            StudentId = 1,
+            SubjectId = 1,
+            AssignmentId = 1,
+            LessonPlanId = lesson.Id,
+            Category = ParentNoteCategory.Breakthrough,
+            Title = "Multiplication breakthrough",
+            Content = "Student explained the pattern independently.",
+            NoteDate = new DateTime(2026, 5, 10)
+        });
+
+        var filtered = (await repository.GetFilteredAsync(new ParentNoteFilter(
+            StudentId: 1,
+            SubjectId: 1,
+            AssignmentId: 1,
+            LessonPlanId: lesson.Id,
+            Category: ParentNoteCategory.Breakthrough,
+            StartDate: new DateTime(2026, 5, 1),
+            EndDate: new DateTime(2026, 5, 31)))).ToList();
+
+        Assert.Contains(filtered, n => n.Id == note.Id);
+        Assert.Equal("Math", filtered.First(n => n.Id == note.Id).Course?.Subject);
+        Assert.Equal("Algebra Worksheet", filtered.First(n => n.Id == note.Id).Assignment?.Title);
+        Assert.Equal("Note Lesson", filtered.First(n => n.Id == note.Id).LessonPlan?.Title);
+    }
+
+    [Fact]
+    public async Task CurriculumResourceRepository_CreatesResources()
+    {
+        var repository = new JsonCurriculumResourceRepository(new HomeschoolDataStore(_dataFilePath));
+        var created = await repository.AddAsync(new CurriculumResource
+        {
+            SubjectId = 3,
+            Title = "Creative Writing Prompts",
+            Description = "Daily writing prompts and revision checklists.",
+            ResourceType = CurriculumResourceType.Workbook,
+            Publisher = "Writing House",
+            GradeLevel = "7th"
+        });
+
+        var reloaded = await repository.GetByIdAsync(created.Id);
+
+        Assert.NotNull(reloaded);
+        Assert.Equal("Creative Writing Prompts", reloaded.Title);
+        Assert.Equal("Language Arts", reloaded.Subject);
+        Assert.Equal(CurriculumResourceType.Workbook, reloaded.ResourceType);
+    }
+
+    [Fact]
+    public async Task StudentCurriculumRepository_AssignsResourceAndPreventsDuplicates()
+    {
+        var store = new HomeschoolDataStore(_dataFilePath);
+        var resourceRepository = new JsonCurriculumResourceRepository(store);
+        var studentCurriculumRepository = new JsonStudentCurriculumRepository(store);
+        var resource = await resourceRepository.AddAsync(new CurriculumResource
+        {
+            SubjectId = 2,
+            Title = "Ancient History Reader",
+            ResourceType = CurriculumResourceType.Book
+        });
+
+        var assignment = await studentCurriculumRepository.AddAsync(new StudentCurriculum
+        {
+            StudentId = 1,
+            CurriculumResourceId = resource.Id,
+            Status = CurriculumStatus.NotStarted,
+            StartDate = new DateTime(2026, 8, 1),
+            TargetEndDate = new DateTime(2026, 12, 15)
+        });
+
+        var duplicate = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            studentCurriculumRepository.AddAsync(new StudentCurriculum
+            {
+                StudentId = 1,
+                CurriculumResourceId = resource.Id
+            }));
+        var reloaded = await studentCurriculumRepository.GetByStudentAndResourceAsync(1, resource.Id);
+
+        Assert.Contains("already assigned", duplicate.Message);
+        Assert.NotNull(reloaded);
+        Assert.Equal(assignment.Id, reloaded.Id);
+        Assert.Equal("Ancient History Reader", reloaded.CurriculumResource.Title);
+    }
+
+    [Fact]
+    public async Task StudentCurriculumRepository_UpdatesProgress()
+    {
+        var repository = new JsonStudentCurriculumRepository(new HomeschoolDataStore(_dataFilePath));
+        var item = await repository.AddAsync(new StudentCurriculum
+        {
+            StudentId = 3,
+            CurriculumResourceId = 1,
+            Status = CurriculumStatus.NotStarted
+        });
+
+        item.Status = CurriculumStatus.InProgress;
+        item.CurrentUnit = "Unit 4";
+        item.CurrentLesson = "Quadratic patterns";
+        item.PercentComplete = 55;
+        await repository.UpdateAsync(item);
+
+        var reloaded = await repository.GetByIdAsync(item.Id);
+
+        Assert.NotNull(reloaded);
+        Assert.Equal(CurriculumStatus.InProgress, reloaded.Status);
+        Assert.Equal("Unit 4", reloaded.CurrentUnit);
+        Assert.Equal("Quadratic patterns", reloaded.CurrentLesson);
+        Assert.Equal(55, reloaded.PercentComplete);
+    }
+
+    [Fact]
+    public async Task StudentCurriculumRepository_RejectsInvalidProgress()
+    {
+        var repository = new JsonStudentCurriculumRepository(new HomeschoolDataStore(_dataFilePath));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repository.AddAsync(new StudentCurriculum
+            {
+                StudentId = 3,
+                CurriculumResourceId = 1,
+                PercentComplete = 101
+            }));
+
+        Assert.Contains("between 0 and 100", exception.Message);
+    }
+
+    [Fact]
+    public async Task PortfolioRepository_CreatesAndFiltersPortfolioItems()
+    {
+        var repository = new JsonPortfolioRepository(new HomeschoolDataStore(_dataFilePath));
+        var item = await repository.AddAsync(new PortfolioItem
+        {
+            StudentId = 1,
+            SubjectId = 1,
+            Type = PortfolioItemType.Photo,
+            Title = "Geometry Model",
+            Description = "Photo of completed model.",
+            Date = new DateTime(2026, 5, 5),
+            IsBestWork = true,
+            AssignmentId = 1,
+            Tags = "geometry,model"
+        });
+
+        var filtered = (await repository.GetFilteredAsync(new PortfolioFilter(
+            StudentId: 1,
+            SubjectId: 1,
+            Type: PortfolioItemType.Photo,
+            StartDate: new DateTime(2026, 5, 1),
+            EndDate: new DateTime(2026, 5, 31),
+            BestWorkOnly: true))).ToList();
+
+        Assert.Contains(filtered, i => i.Id == item.Id);
+        Assert.DoesNotContain(filtered, i => i.StudentId != 1 || i.SubjectId != 1 || i.Type != PortfolioItemType.Photo);
+    }
+
+    [Fact]
+    public async Task PortfolioRepository_ReturnsAssignmentAndLessonLinkedItems()
+    {
+        var store = new HomeschoolDataStore(_dataFilePath);
+        var lessonRepository = new JsonLessonPlanRepository(store);
+        var lesson = await lessonRepository.AddAsync(new LessonPlan
+        {
+            FamilyId = 1,
+            StudentId = 1,
+            SubjectId = 1,
+            Title = "Portfolio Lesson",
+            PlannedDate = new DateTime(2026, 5, 6),
+            EstimatedMinutes = 30
+        });
+        var repository = new JsonPortfolioRepository(store);
+        var item = await repository.AddAsync(new PortfolioItem
+        {
+            StudentId = 1,
+            SubjectId = 1,
+            Type = PortfolioItemType.Note,
+            Title = "Lesson Reflection",
+            Date = new DateTime(2026, 5, 6),
+            AssignmentId = 1,
+            LessonPlanId = lesson.Id
+        });
+
+        var assignmentItems = (await repository.GetByAssignmentIdAsync(1)).ToList();
+        var lessonItems = (await repository.GetByLessonPlanIdAsync(lesson.Id)).ToList();
+
+        Assert.Contains(assignmentItems, i => i.Id == item.Id);
+        Assert.Contains(lessonItems, i => i.Id == item.Id);
     }
 
     [Fact]

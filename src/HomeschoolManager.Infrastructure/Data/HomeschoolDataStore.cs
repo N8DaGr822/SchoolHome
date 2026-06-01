@@ -200,6 +200,13 @@ public sealed class HomeschoolDataStore
         data.Grades ??= new List<Grade>();
         data.AttendanceRecords ??= new List<AttendanceRecord>();
         data.LearningTimeEntries ??= new List<LearningTimeEntry>();
+        data.PortfolioItems ??= new List<PortfolioItem>();
+        data.CurriculumResources ??= new List<CurriculumResource>();
+        data.StudentCurricula ??= new List<StudentCurriculum>();
+        data.ParentNotes ??= new List<ParentNote>();
+        data.Yearbooks ??= new List<Yearbook>();
+        data.YearbookPages ??= new List<YearbookPage>();
+        data.YearbookAssets ??= new List<YearbookAsset>();
 
         foreach (var student in data.Students)
         {
@@ -208,6 +215,9 @@ public sealed class HomeschoolDataStore
             student.Grades ??= new List<Grade>();
             student.AttendanceRecords ??= new List<AttendanceRecord>();
             student.LearningTimeEntries ??= new List<LearningTimeEntry>();
+            student.PortfolioItems ??= new List<PortfolioItem>();
+            student.StudentCurricula ??= new List<StudentCurriculum>();
+            student.ParentNotes ??= new List<ParentNote>();
         }
 
         foreach (var course in data.Courses)
@@ -215,6 +225,7 @@ public sealed class HomeschoolDataStore
             course.Students ??= new List<Student>();
             course.Assignments ??= new List<Assignment>();
             course.LessonPlans ??= new List<LessonPlan>();
+            course.CurriculumResources ??= new List<CurriculumResource>();
             foreach (var lessonPlan in course.LessonPlans)
             {
                 if (lessonPlan.CourseId == 0)
@@ -240,6 +251,71 @@ public sealed class HomeschoolDataStore
             learningTimeEntry.Date = learningTimeEntry.Date.Date;
             learningTimeEntry.Subject ??= string.Empty;
             learningTimeEntry.Notes ??= string.Empty;
+        }
+
+        foreach (var portfolioItem in data.PortfolioItems)
+        {
+            portfolioItem.Date = portfolioItem.Date.Date;
+            portfolioItem.Description ??= string.Empty;
+            portfolioItem.Notes ??= string.Empty;
+            portfolioItem.Subject ??= string.Empty;
+            portfolioItem.ExternalUrl ??= string.Empty;
+            portfolioItem.OriginalFileName ??= string.Empty;
+            portfolioItem.StoredFileName ??= string.Empty;
+            portfolioItem.StoredFilePath ??= string.Empty;
+            portfolioItem.ContentType ??= string.Empty;
+            portfolioItem.Tags ??= string.Empty;
+        }
+
+        foreach (var resource in data.CurriculumResources)
+        {
+            resource.Title = resource.Title?.Trim() ?? string.Empty;
+            resource.Description = resource.Description?.Trim() ?? string.Empty;
+            resource.Subject = resource.Subject?.Trim() ?? string.Empty;
+            resource.Publisher = resource.Publisher?.Trim() ?? string.Empty;
+            resource.Author = resource.Author?.Trim() ?? string.Empty;
+            resource.Url = resource.Url?.Trim() ?? string.Empty;
+            resource.GradeLevel = resource.GradeLevel?.Trim() ?? string.Empty;
+            resource.StudentCurricula ??= new List<StudentCurriculum>();
+        }
+
+        foreach (var studentCurriculum in data.StudentCurricula)
+        {
+            studentCurriculum.CurrentUnit = studentCurriculum.CurrentUnit?.Trim() ?? string.Empty;
+            studentCurriculum.CurrentLesson = studentCurriculum.CurrentLesson?.Trim() ?? string.Empty;
+            studentCurriculum.StartDate = studentCurriculum.StartDate?.Date;
+            studentCurriculum.TargetEndDate = studentCurriculum.TargetEndDate?.Date;
+        }
+
+        foreach (var parentNote in data.ParentNotes)
+        {
+            parentNote.Title = parentNote.Title?.Trim() ?? string.Empty;
+            parentNote.Content = parentNote.Content?.Trim() ?? string.Empty;
+            parentNote.NoteDate = parentNote.NoteDate.Date;
+        }
+
+        foreach (var yearbook in data.Yearbooks)
+        {
+            yearbook.Title = yearbook.Title?.Trim() ?? string.Empty;
+            yearbook.SchoolYear = yearbook.SchoolYear?.Trim() ?? string.Empty;
+            yearbook.StartDate = yearbook.StartDate.Date;
+            yearbook.EndDate = yearbook.EndDate.Date;
+            yearbook.Pages ??= new List<YearbookPage>();
+            yearbook.Assets ??= new List<YearbookAsset>();
+        }
+
+        foreach (var page in data.YearbookPages)
+        {
+            page.Title = page.Title?.Trim() ?? string.Empty;
+            page.ContentJson = string.IsNullOrWhiteSpace(page.ContentJson) ? "{}" : page.ContentJson.Trim();
+            EnsureYearbookPageElementsInitialized(page);
+        }
+
+        foreach (var asset in data.YearbookAssets)
+        {
+            asset.Title = asset.Title?.Trim() ?? string.Empty;
+            asset.SourcePath = asset.SourcePath?.Trim() ?? string.Empty;
+            asset.Caption = asset.Caption?.Trim() ?? string.Empty;
         }
 
         foreach (var lessonPlan in data.LessonPlans)
@@ -309,7 +385,14 @@ public sealed class HomeschoolDataStore
             data.Assignments.Count,
             data.Grades.Count,
             data.AttendanceRecords.Count,
-            data.LearningTimeEntries.Count);
+            data.LearningTimeEntries.Count,
+            data.PortfolioItems.Count,
+            data.CurriculumResources.Count,
+            data.StudentCurricula.Count,
+            data.ParentNotes.Count,
+            data.Yearbooks.Count,
+            data.YearbookPages.Count,
+            data.YearbookAssets.Count);
     }
 
     private static void Validate(HomeschoolData data)
@@ -321,6 +404,13 @@ public sealed class HomeschoolDataStore
         ValidateUniqueIds(data.Grades.Select(g => g.Id), "Grade");
         ValidateUniqueIds(data.AttendanceRecords.Select(a => a.Id), "Attendance");
         ValidateUniqueIds(data.LearningTimeEntries.Select(e => e.Id), "Learning time");
+        ValidateUniqueIds(data.PortfolioItems.Select(i => i.Id), "Portfolio item");
+        ValidateUniqueIds(data.CurriculumResources.Select(r => r.Id), "Curriculum resource");
+        ValidateUniqueIds(data.StudentCurricula.Select(c => c.Id), "Student curriculum");
+        ValidateUniqueIds(data.ParentNotes.Select(n => n.Id), "Parent note");
+        ValidateUniqueIds(data.Yearbooks.Select(y => y.Id), "Yearbook");
+        ValidateUniqueIds(data.YearbookPages.Select(p => p.Id), "Yearbook page");
+        ValidateUniqueIds(data.YearbookAssets.Select(a => a.Id), "Yearbook asset");
 
         foreach (var student in data.Students)
         {
@@ -344,6 +434,7 @@ public sealed class HomeschoolDataStore
         var studentIds = data.Students.Select(s => s.Id).ToHashSet();
         var courseIds = data.Courses.Select(c => c.Id).ToHashSet();
         var assignmentIds = data.Assignments.Select(a => a.Id).ToHashSet();
+        var curriculumResourceIds = data.CurriculumResources.Select(r => r.Id).ToHashSet();
 
         foreach (var lessonPlan in data.LessonPlans)
         {
@@ -429,6 +520,144 @@ public sealed class HomeschoolDataStore
                 throw new InvalidDataException($"Learning time {learningTimeEntry.Id} points to missing subject {learningTimeEntry.SubjectId}.");
             }
         }
+
+        foreach (var portfolioItem in data.PortfolioItems)
+        {
+            ValidateObject(portfolioItem, $"Portfolio item {portfolioItem.Id}");
+            if (!studentIds.Contains(portfolioItem.StudentId))
+            {
+                throw new InvalidDataException($"Portfolio item {portfolioItem.Id} points to missing student {portfolioItem.StudentId}.");
+            }
+
+            if (!courseIds.Contains(portfolioItem.SubjectId))
+            {
+                throw new InvalidDataException($"Portfolio item {portfolioItem.Id} points to missing subject {portfolioItem.SubjectId}.");
+            }
+
+            if (portfolioItem.AssignmentId.HasValue && !assignmentIds.Contains(portfolioItem.AssignmentId.Value))
+            {
+                throw new InvalidDataException($"Portfolio item {portfolioItem.Id} points to missing assignment {portfolioItem.AssignmentId.Value}.");
+            }
+
+            if (portfolioItem.LessonPlanId.HasValue && !data.LessonPlans.Any(lp => lp.Id == portfolioItem.LessonPlanId.Value))
+            {
+                throw new InvalidDataException($"Portfolio item {portfolioItem.Id} points to missing lesson plan {portfolioItem.LessonPlanId.Value}.");
+            }
+        }
+
+        foreach (var resource in data.CurriculumResources)
+        {
+            ValidateObject(resource, $"Curriculum resource {resource.Id}");
+            if (!courseIds.Contains(resource.SubjectId))
+            {
+                throw new InvalidDataException($"Curriculum resource {resource.Id} points to missing subject {resource.SubjectId}.");
+            }
+        }
+
+        var studentCurriculumKeys = new HashSet<(int StudentId, int ResourceId)>();
+        foreach (var studentCurriculum in data.StudentCurricula)
+        {
+            ValidateObject(studentCurriculum, $"Student curriculum {studentCurriculum.Id}");
+            if (!studentIds.Contains(studentCurriculum.StudentId))
+            {
+                throw new InvalidDataException($"Student curriculum {studentCurriculum.Id} points to missing student {studentCurriculum.StudentId}.");
+            }
+
+            if (!curriculumResourceIds.Contains(studentCurriculum.CurriculumResourceId))
+            {
+                throw new InvalidDataException($"Student curriculum {studentCurriculum.Id} points to missing curriculum resource {studentCurriculum.CurriculumResourceId}.");
+            }
+
+            if (!studentCurriculumKeys.Add((studentCurriculum.StudentId, studentCurriculum.CurriculumResourceId)))
+            {
+                throw new InvalidDataException($"Curriculum resource {studentCurriculum.CurriculumResourceId} is already assigned to student {studentCurriculum.StudentId}.");
+            }
+        }
+
+        foreach (var parentNote in data.ParentNotes)
+        {
+            ValidateObject(parentNote, $"Parent note {parentNote.Id}");
+            if (!studentIds.Contains(parentNote.StudentId))
+            {
+                throw new InvalidDataException($"Parent note {parentNote.Id} points to missing student {parentNote.StudentId}.");
+            }
+
+            if (parentNote.SubjectId.HasValue && !courseIds.Contains(parentNote.SubjectId.Value))
+            {
+                throw new InvalidDataException($"Parent note {parentNote.Id} points to missing subject {parentNote.SubjectId.Value}.");
+            }
+
+            if (parentNote.AssignmentId.HasValue && !assignmentIds.Contains(parentNote.AssignmentId.Value))
+            {
+                throw new InvalidDataException($"Parent note {parentNote.Id} points to missing assignment {parentNote.AssignmentId.Value}.");
+            }
+
+            if (parentNote.AssignmentId.HasValue && data.Assignments.First(a => a.Id == parentNote.AssignmentId.Value).StudentId != parentNote.StudentId)
+            {
+                throw new InvalidDataException($"Parent note {parentNote.Id} points to an assignment for a different student.");
+            }
+
+            if (parentNote.LessonPlanId.HasValue && !data.LessonPlans.Any(lp => lp.Id == parentNote.LessonPlanId.Value))
+            {
+                throw new InvalidDataException($"Parent note {parentNote.Id} points to missing lesson plan {parentNote.LessonPlanId.Value}.");
+            }
+
+            if (parentNote.LessonPlanId.HasValue && data.LessonPlans.First(lp => lp.Id == parentNote.LessonPlanId.Value).StudentId != parentNote.StudentId)
+            {
+                throw new InvalidDataException($"Parent note {parentNote.Id} points to a lesson plan for a different student.");
+            }
+        }
+
+        var yearbookIds = data.Yearbooks.Select(y => y.Id).ToHashSet();
+        var yearbookPageIds = data.YearbookPages.Select(p => p.Id).ToHashSet();
+        var portfolioItemIds = data.PortfolioItems.Select(i => i.Id).ToHashSet();
+
+        foreach (var yearbook in data.Yearbooks)
+        {
+            ValidateObject(yearbook, $"Yearbook {yearbook.Id}");
+            if (yearbook.EndDate.Date < yearbook.StartDate.Date)
+            {
+                throw new InvalidDataException($"Yearbook {yearbook.Id} end date must be on or after start date.");
+            }
+
+            if (yearbook.Scope == YearbookScope.Student && (!yearbook.StudentId.HasValue || !studentIds.Contains(yearbook.StudentId.Value)))
+            {
+                throw new InvalidDataException($"Yearbook {yearbook.Id} requires a valid student.");
+            }
+        }
+
+        foreach (var page in data.YearbookPages)
+        {
+            ValidateObject(page, $"Yearbook page {page.Id}");
+            if (!yearbookIds.Contains(page.YearbookId))
+            {
+                throw new InvalidDataException($"Yearbook page {page.Id} points to missing yearbook {page.YearbookId}.");
+            }
+
+            if (!IsValidJson(page.ContentJson))
+            {
+                throw new InvalidDataException($"Yearbook page {page.Id} content must be valid JSON.");
+            }
+        }
+
+        foreach (var asset in data.YearbookAssets)
+        {
+            ValidateObject(asset, $"Yearbook asset {asset.Id}");
+            if (!yearbookIds.Contains(asset.YearbookId))
+            {
+                throw new InvalidDataException($"Yearbook asset {asset.Id} points to missing yearbook {asset.YearbookId}.");
+            }
+
+            if (asset.YearbookPageId.HasValue && !yearbookPageIds.Contains(asset.YearbookPageId.Value))
+            {
+                throw new InvalidDataException($"Yearbook asset {asset.Id} points to missing yearbook page {asset.YearbookPageId.Value}.");
+            }
+
+            if (asset.PortfolioItemId.HasValue && !portfolioItemIds.Contains(asset.PortfolioItemId.Value))
+            {
+                throw new InvalidDataException($"Yearbook asset {asset.Id} points to missing portfolio item {asset.PortfolioItemId.Value}.");
+            }
+        }
     }
 
     private static void ValidateUniqueIds(IEnumerable<int> ids, string label)
@@ -468,12 +697,16 @@ public sealed class HomeschoolDataStore
             student.Grades = new List<Grade>();
             student.AttendanceRecords = new List<AttendanceRecord>();
             student.LearningTimeEntries = new List<LearningTimeEntry>();
+            student.PortfolioItems = new List<PortfolioItem>();
+            student.StudentCurricula = new List<StudentCurriculum>();
+            student.ParentNotes = new List<ParentNote>();
         }
 
         foreach (var course in data.Courses)
         {
             course.Students = new List<Student>();
             course.Assignments = new List<Assignment>();
+            course.CurriculumResources = new List<CurriculumResource>();
             foreach (var lessonPlan in course.LessonPlans)
             {
                 lessonPlan.Course = null!;
@@ -508,5 +741,71 @@ public sealed class HomeschoolDataStore
             learningTimeEntry.Student = null!;
             learningTimeEntry.Course = null!;
         }
+
+        foreach (var portfolioItem in data.PortfolioItems)
+        {
+            portfolioItem.Student = null!;
+            portfolioItem.Course = null!;
+            portfolioItem.Assignment = null;
+            portfolioItem.LessonPlan = null;
+        }
+
+        foreach (var resource in data.CurriculumResources)
+        {
+            resource.Course = null!;
+            resource.StudentCurricula = new List<StudentCurriculum>();
+        }
+
+        foreach (var studentCurriculum in data.StudentCurricula)
+        {
+            studentCurriculum.Student = null!;
+            studentCurriculum.CurriculumResource = null!;
+        }
+
+        foreach (var parentNote in data.ParentNotes)
+        {
+            parentNote.Student = null!;
+            parentNote.Course = null;
+            parentNote.Assignment = null;
+            parentNote.LessonPlan = null;
+        }
+
+        foreach (var yearbook in data.Yearbooks)
+        {
+            yearbook.Student = null;
+            yearbook.Pages = new List<YearbookPage>();
+            yearbook.Assets = new List<YearbookAsset>();
+        }
+
+        foreach (var page in data.YearbookPages)
+        {
+            EnsureYearbookPageElementsInitialized(page);
+            page.Yearbook = null!;
+        }
+
+        foreach (var asset in data.YearbookAssets)
+        {
+            asset.Yearbook = null!;
+            asset.Page = null;
+            asset.PortfolioItem = null;
+        }
+    }
+
+    private static bool IsValidJson(string json)
+    {
+        try
+        {
+            using var _ = JsonDocument.Parse(json);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static void EnsureYearbookPageElementsInitialized(YearbookPage page)
+    {
+        YearbookPageMigration.EnsureElements(page);
     }
 }

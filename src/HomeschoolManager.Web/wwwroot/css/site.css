@@ -338,6 +338,140 @@ a,
     padding: 0.22rem 0.35rem;
 }
 
+.yearbook-page-canvas-shell {
+    background: var(--app-surface-muted);
+    border: 1px solid var(--app-border);
+    border-radius: 0.375rem;
+    overflow-x: auto;
+    padding: 1rem;
+}
+
+.yearbook-page-canvas {
+    aspect-ratio: 8.5 / 11;
+    background: #ffffff;
+    border: 1px solid var(--app-border);
+    box-shadow: 0 0.5rem 1.5rem rgba(15, 23, 42, 0.12);
+    color: #111827;
+    margin: 0 auto;
+    max-width: 100%;
+    min-width: 320px;
+    position: relative;
+    width: min(100%, 680px);
+}
+
+.editable-element {
+    background: transparent;
+    box-sizing: border-box;
+    cursor: pointer;
+    position: absolute;
+    touch-action: none;
+    transform-origin: center center;
+}
+
+.editable-element-selected {
+    outline: 2px solid var(--app-focus);
+    outline-offset: 2px;
+}
+
+.editable-element-photo,
+.editable-element-text,
+.editable-element-placeholder {
+    border: 0;
+    display: block;
+    height: 100%;
+    width: 100%;
+}
+
+.editable-element-photo {
+    pointer-events: none;
+    user-select: none;
+}
+
+.editable-element-text {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    cursor: text;
+    line-height: 1.25;
+    margin: 0;
+    overflow: hidden;
+    padding: 0.25rem;
+    resize: none;
+    touch-action: auto;
+}
+
+.editable-element-text:focus {
+    outline: 1px dashed var(--app-focus);
+}
+
+.editable-element-placeholder {
+    align-items: center;
+    background: #eef2f7;
+    color: #64748b;
+    display: flex;
+    font-size: 2rem;
+    justify-content: center;
+}
+
+.resize-handle {
+    background: #ffffff;
+    border: 2px solid var(--app-focus);
+    border-radius: 50%;
+    box-sizing: border-box;
+    height: 0.75rem;
+    position: absolute;
+    width: 0.75rem;
+    z-index: 2;
+}
+
+.resize-handle-nw {
+    cursor: nwse-resize;
+    left: -0.45rem;
+    top: -0.45rem;
+}
+
+.resize-handle-n {
+    cursor: ns-resize;
+    left: calc(50% - 0.375rem);
+    top: -0.45rem;
+}
+
+.resize-handle-ne {
+    cursor: nesw-resize;
+    right: -0.45rem;
+    top: -0.45rem;
+}
+
+.resize-handle-e {
+    cursor: ew-resize;
+    right: -0.45rem;
+    top: calc(50% - 0.375rem);
+}
+
+.resize-handle-se {
+    cursor: nwse-resize;
+    bottom: -0.45rem;
+    right: -0.45rem;
+}
+
+.resize-handle-s {
+    cursor: ns-resize;
+    bottom: -0.45rem;
+    left: calc(50% - 0.375rem);
+}
+
+.resize-handle-sw {
+    cursor: nesw-resize;
+    bottom: -0.45rem;
+    left: -0.45rem;
+}
+
+.resize-handle-w {
+    cursor: ew-resize;
+    left: -0.45rem;
+    top: calc(50% - 0.375rem);
+}
+
 :root[data-theme="dark"] .btn-outline-primary,
 :root[data-theme="dark"] .btn-outline-info,
 :root[data-theme="dark"] .btn-outline-secondary,

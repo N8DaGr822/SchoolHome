@@ -33,4 +33,5 @@ public class Course
     public List<Student> Students { get; set; } = new();
     public List<Assignment> Assignments { get; set; } = new();
     public List<LessonPlan> LessonPlans { get; set; } = new();
+    public List<CurriculumResource> CurriculumResources { get; set; } = new();
 }

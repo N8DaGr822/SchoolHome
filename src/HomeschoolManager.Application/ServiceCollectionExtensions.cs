@@ -14,6 +14,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ILessonPlanService, LessonPlanService>();
         services.AddScoped<IAttendanceService, AttendanceService>();
         services.AddScoped<ILearningTimeService, LearningTimeService>();
+        services.AddScoped<IPortfolioService, PortfolioService>();
+        services.AddScoped<ICurriculumService, CurriculumService>();
+        services.AddScoped<IProgressReportService, ProgressReportService>();
+        services.AddScoped<IParentNoteService, ParentNoteService>();
+        services.AddScoped<IYearbookService, YearbookService>();
 
         return services;
     }

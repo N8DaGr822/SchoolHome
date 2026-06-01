@@ -9,4 +9,4 @@ public class StudentDto
     public string GradeLevel { get; set; } = string.Empty;
     public string FullName => $"{FirstName} {LastName}";
     public int Age => DateTime.Now.Year - DateOfBirth.Year - (DateTime.Now.DayOfYear < DateOfBirth.DayOfYear ? 1 : 0);
-} 
+}

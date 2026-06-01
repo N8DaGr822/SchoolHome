@@ -1,0 +1,516 @@
+@page "/curriculum"
+@using HomeschoolManager.Application.Services
+@using HomeschoolManager.Core.Interfaces
+@inject ICurriculumService CurriculumService
+@inject IStudentService StudentService
+@inject ICourseService CourseService
+
+<PageTitle>Curriculum - Homeschool Manager</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <h1 class="mb-1">Curriculum Library</h1>
+            <p class="text-muted mb-0">Manage reusable resources and track each student's curriculum progress.</p>
+        </div>
+        <button type="button" class="btn btn-primary" @onclick="ShowResourceModal">
+            <span class="oi oi-plus"></span> Add Resource
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="alert alert-success" role="status">@statusMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label" for="curriculum-student-filter">Student</label>
+                    <select id="curriculum-student-filter" class="form-select" @bind="filterStudentId">
+                        <option value="0">All</option>
+                        @foreach (var student in students)
+                        {
+                            <option value="@student.Id">@GetStudentName(student)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="curriculum-subject-filter">Subject</label>
+                    <select id="curriculum-subject-filter" class="form-select" @bind="filterSubjectId">
+                        <option value="0">All</option>
+                        @foreach (var course in courses)
+                        {
+                            <option value="@course.Id">@GetSubjectName(course)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="curriculum-status-filter">Status</label>
+                    <select id="curriculum-status-filter" class="form-select" @bind="filterStatus">
+                        <option value="">All</option>
+                        @foreach (var status in Enum.GetValues<CurriculumStatus>())
+                        {
+                            <option value="@status">@GetStatusLabel(status)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="curriculum-type-filter">Type</label>
+                    <select id="curriculum-type-filter" class="form-select" @bind="filterResourceType">
+                        <option value="">All</option>
+                        @foreach (var type in Enum.GetValues<CurriculumResourceType>())
+                        {
+                            <option value="@type">@GetResourceTypeLabel(type)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-outline-primary w-100" @onclick="LoadAsync">Apply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-xl-5">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Library</h5>
+                    <span class="badge bg-secondary">@resources.Count</span>
+                </div>
+                <div class="card-body">
+                    @if (isLoading)
+                    {
+                        <div class="text-muted">Loading curriculum...</div>
+                    }
+                    else if (resources.Any())
+                    {
+                        <div class="list-group list-group-flush">
+                            @foreach (var resource in resources)
+                            {
+                                <div class="list-group-item px-0">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div>
+                                            <h6 class="mb-1">@resource.Title</h6>
+                                            <div class="small text-muted">@GetSubjectName(resource.SubjectId) / @GetResourceTypeLabel(resource.ResourceType)</div>
+                                            <p class="small mb-2">@resource.Description</p>
+                                            <div class="small text-muted">@Display(resource.Publisher) @Display(resource.GradeLevel)</div>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="() => ShowAssignModal(resource)">
+                                            Assign
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-4">No curriculum resources match the filters.</div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-7">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Student Tracking</h5>
+                    <span class="badge bg-secondary">@studentCurricula.Count</span>
+                </div>
+                <div class="card-body">
+                    @if (studentCurricula.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Student</th>
+                                        <th>Resource</th>
+                                        <th>Status</th>
+                                        <th>Progress</th>
+                                        <th>Current</th>
+                                        <th>Target</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in studentCurricula)
+                                    {
+                                        <tr>
+                                            <td>@GetStudentName(item.StudentId)</td>
+                                            <td>
+                                                <div>@(item.CurriculumResource?.Title ?? item.CurriculumResourceId.ToString())</div>
+                                                <small class="text-muted">@GetSubjectName(item.CurriculumResource?.SubjectId ?? 0)</small>
+                                            </td>
+                                            <td><span class="badge bg-secondary">@GetStatusLabel(item.Status)</span></td>
+                                            <td style="min-width: 120px;">
+                                                <div class="progress" role="progressbar" aria-label="Curriculum progress" aria-valuenow="@item.PercentComplete" aria-valuemin="0" aria-valuemax="100">
+                                                    <div class="progress-bar" style="width:@item.PercentComplete%">@item.PercentComplete%</div>
+                                                </div>
+                                            </td>
+                                            <td>@DisplayCurrent(item)</td>
+                                            <td>@(item.TargetEndDate?.ToString("MM/dd/yyyy") ?? "-")</td>
+                                            <td class="text-end">
+                                                <a class="btn btn-sm btn-outline-primary" href="curriculum/@item.Id">Details</a>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-4">No student curriculum assignments match the filters.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (showResourceModal)
+{
+    <div class="modal fade show" style="display:block;" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <EditForm Model="@resourceForm" OnValidSubmit="SaveResourceAsync">
+                    <DataAnnotationsValidator />
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Curriculum Resource</h5>
+                        <button type="button" class="btn-close" @onclick="CloseResourceModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ValidationSummary />
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label class="form-label" for="resource-title">Title</label>
+                                    <InputText id="resource-title" class="form-control" @bind-Value="resourceForm.Title" />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="resource-type">Type</label>
+                                    <InputSelect id="resource-type" class="form-select" @bind-Value="resourceForm.ResourceType">
+                                        @foreach (var type in Enum.GetValues<CurriculumResourceType>())
+                                        {
+                                            <option value="@type">@GetResourceTypeLabel(type)</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="resource-subject">Subject</label>
+                                    <InputSelect id="resource-subject" class="form-select" @bind-Value="resourceForm.SubjectId">
+                                        <option value="0">Select Subject</option>
+                                        @foreach (var course in courses)
+                                        {
+                                            <option value="@course.Id">@GetSubjectName(course)</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="resource-grade">Grade Level</label>
+                                    <InputText id="resource-grade" class="form-control" @bind-Value="resourceForm.GradeLevel" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="resource-description">Description</label>
+                            <InputTextArea id="resource-description" class="form-control" rows="3" @bind-Value="resourceForm.Description" />
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="resource-publisher">Publisher</label>
+                                    <InputText id="resource-publisher" class="form-control" @bind-Value="resourceForm.Publisher" />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="resource-author">Author</label>
+                                    <InputText id="resource-author" class="form-control" @bind-Value="resourceForm.Author" />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="resource-url">URL</label>
+                                    <InputText id="resource-url" class="form-control" @bind-Value="resourceForm.Url" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseResourceModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Resource</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@if (showAssignModal && selectedResource is not null)
+{
+    <div class="modal fade show" style="display:block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Assign @selectedResource.Title</h5>
+                    <button type="button" class="btn-close" @onclick="CloseAssignModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Students</label>
+                        @foreach (var student in students)
+                        {
+                            <div class="form-check">
+                                <input id="assign-student-@student.Id"
+                                       class="form-check-input"
+                                       type="checkbox"
+                                       checked="@selectedStudentIds.Contains(student.Id)"
+                                       @onchange="args => ToggleSelectedStudent(student.Id, args)" />
+                                <label class="form-check-label" for="assign-student-@student.Id">@GetStudentName(student)</label>
+                            </div>
+                        }
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label" for="assign-start">Start</label>
+                            <InputDate id="assign-start" class="form-control" @bind-Value="assignStartDate" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="assign-target">Target End</label>
+                            <InputDate id="assign-target" class="form-control" @bind-Value="assignTargetEndDate" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseAssignModal">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="AssignResourceAsync">Assign</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private List<CurriculumResource> resources = new();
+    private List<StudentCurriculum> studentCurricula = new();
+    private List<Student> students = new();
+    private List<Course> courses = new();
+    private CurriculumResource resourceForm = CreateDefaultResource();
+    private CurriculumResource? selectedResource;
+    private HashSet<int> selectedStudentIds = new();
+    private int filterStudentId;
+    private int filterSubjectId;
+    private string filterStatus = string.Empty;
+    private string filterResourceType = string.Empty;
+    private DateTime assignStartDate = DateTime.Today;
+    private DateTime assignTargetEndDate = DateTime.Today.AddMonths(3);
+    private bool isLoading = true;
+    private bool showResourceModal;
+    private bool showAssignModal;
+    private string? statusMessage;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        students = (await StudentService.GetAllStudentsAsync()).ToList();
+        courses = (await CourseService.GetAllCoursesAsync()).ToList();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        ClearMessages();
+        try
+        {
+            var type = Enum.TryParse<CurriculumResourceType>(filterResourceType, out var parsedType) ? parsedType : (CurriculumResourceType?)null;
+            var status = Enum.TryParse<CurriculumStatus>(filterStatus, out var parsedStatus) ? parsedStatus : (CurriculumStatus?)null;
+            int? subjectId = filterSubjectId == 0 ? null : filterSubjectId;
+
+            resources = (await CurriculumService.GetResourcesAsync(new CurriculumResourceFilter(subjectId, type))).ToList();
+            studentCurricula = (await CurriculumService.GetStudentCurriculaAsync(new StudentCurriculumFilter(
+                filterStudentId == 0 ? null : filterStudentId,
+                subjectId,
+                status,
+                type))).ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowResourceModal()
+    {
+        resourceForm = CreateDefaultResource();
+        resourceForm.SubjectId = courses.FirstOrDefault()?.Id ?? 0;
+        showResourceModal = true;
+    }
+
+    private void CloseResourceModal()
+    {
+        showResourceModal = false;
+    }
+
+    private async Task SaveResourceAsync()
+    {
+        ClearMessages();
+        try
+        {
+            resourceForm.Subject = courses.FirstOrDefault(c => c.Id == resourceForm.SubjectId) is { } course
+                ? GetSubjectName(course)
+                : resourceForm.Subject;
+            await CurriculumService.CreateResourceAsync(resourceForm);
+            statusMessage = "Curriculum resource saved.";
+            showResourceModal = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private void ShowAssignModal(CurriculumResource resource)
+    {
+        selectedResource = resource;
+        selectedStudentIds = new HashSet<int>();
+        assignStartDate = DateTime.Today;
+        assignTargetEndDate = DateTime.Today.AddMonths(3);
+        showAssignModal = true;
+    }
+
+    private void CloseAssignModal()
+    {
+        showAssignModal = false;
+        selectedResource = null;
+        selectedStudentIds.Clear();
+    }
+
+    private void ToggleSelectedStudent(int studentId, ChangeEventArgs args)
+    {
+        if (args.Value is bool selected && selected)
+        {
+            selectedStudentIds.Add(studentId);
+        }
+        else
+        {
+            selectedStudentIds.Remove(studentId);
+        }
+    }
+
+    private async Task AssignResourceAsync()
+    {
+        if (selectedResource is null)
+        {
+            return;
+        }
+
+        ClearMessages();
+        try
+        {
+            var assigned = (await CurriculumService.AssignResourceAsync(
+                selectedResource.Id,
+                selectedStudentIds,
+                assignStartDate,
+                assignTargetEndDate)).ToList();
+            statusMessage = $"Assigned curriculum to {assigned.Count} student(s).";
+            CloseAssignModal();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private string GetStudentName(int studentId)
+    {
+        return students.FirstOrDefault(s => s.Id == studentId) is { } student ? GetStudentName(student) : "Unknown student";
+    }
+
+    private static string GetStudentName(Student student)
+    {
+        return $"{student.FirstName} {student.LastName}";
+    }
+
+    private string GetSubjectName(int subjectId)
+    {
+        return courses.FirstOrDefault(c => c.Id == subjectId) is { } course ? GetSubjectName(course) : "Unknown subject";
+    }
+
+    private static string GetSubjectName(Course course)
+    {
+        return string.IsNullOrWhiteSpace(course.Subject) ? course.Name : course.Subject;
+    }
+
+    private static string GetResourceTypeLabel(CurriculumResourceType type)
+    {
+        return type switch
+        {
+            CurriculumResourceType.OnlineCourse => "Online Course",
+            CurriculumResourceType.UnitStudy => "Unit Study",
+            _ => type.ToString()
+        };
+    }
+
+    private static string GetStatusLabel(CurriculumStatus status)
+    {
+        return status switch
+        {
+            CurriculumStatus.NotStarted => "Not Started",
+            CurriculumStatus.InProgress => "In Progress",
+            _ => status.ToString()
+        };
+    }
+
+    private static string Display(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? string.Empty : value;
+    }
+
+    private static string DisplayCurrent(StudentCurriculum item)
+    {
+        var parts = new[] { item.CurrentUnit, item.CurrentLesson }.Where(p => !string.IsNullOrWhiteSpace(p));
+        var value = string.Join(" / ", parts);
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    private void ClearMessages()
+    {
+        statusMessage = null;
+        errorMessage = null;
+    }
+
+    private static CurriculumResource CreateDefaultResource()
+    {
+        return new CurriculumResource
+        {
+            ResourceType = CurriculumResourceType.Book
+        };
+    }
+}

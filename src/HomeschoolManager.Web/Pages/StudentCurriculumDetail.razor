@@ -1,0 +1,200 @@
+@page "/curriculum/{Id:int}"
+@using HomeschoolManager.Application.Services
+@inject ICurriculumService CurriculumService
+
+<PageTitle>Student Curriculum - Homeschool Manager</PageTitle>
+
+<div class="container-fluid">
+    <div class="mb-3">
+        <a href="curriculum" class="btn btn-outline-secondary btn-sm">
+            <span class="oi oi-arrow-left"></span> Curriculum
+        </a>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(statusMessage))
+    {
+        <div class="alert alert-success" role="status">@statusMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@errorMessage</div>
+    }
+    else if (studentCurriculum is null)
+    {
+        <div class="card">
+            <div class="card-body text-muted">Loading student curriculum...</div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            <div class="col-lg-5">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h1 class="h4 mb-1">@studentCurriculum.CurriculumResource?.Title</h1>
+                        <div class="text-muted">@GetStudentName(studentCurriculum) / @studentCurriculum.CurriculumResource?.Subject</div>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row">
+                            <dt class="col-sm-4">Type</dt>
+                            <dd class="col-sm-8">@studentCurriculum.CurriculumResource?.ResourceType</dd>
+                            <dt class="col-sm-4">Description</dt>
+                            <dd class="col-sm-8">@Display(studentCurriculum.CurriculumResource?.Description)</dd>
+                            <dt class="col-sm-4">Publisher</dt>
+                            <dd class="col-sm-8">@Display(studentCurriculum.CurriculumResource?.Publisher)</dd>
+                            <dt class="col-sm-4">Author</dt>
+                            <dd class="col-sm-8">@Display(studentCurriculum.CurriculumResource?.Author)</dd>
+                            <dt class="col-sm-4">URL</dt>
+                            <dd class="col-sm-8">
+                                @if (!string.IsNullOrWhiteSpace(studentCurriculum.CurriculumResource?.Url))
+                                {
+                                    <a href="@studentCurriculum.CurriculumResource.Url" target="_blank" rel="noopener noreferrer">@studentCurriculum.CurriculumResource.Url</a>
+                                }
+                                else
+                                {
+                                    <span>-</span>
+                                }
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">Progress</h5>
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="@studentCurriculum" OnValidSubmit="SaveAsync">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary />
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label" for="curriculum-status">Status</label>
+                                        <InputSelect id="curriculum-status" class="form-select" @bind-Value="studentCurriculum.Status">
+                                            @foreach (var status in Enum.GetValues<CurriculumStatus>())
+                                            {
+                                                <option value="@status">@GetStatusLabel(status)</option>
+                                            }
+                                        </InputSelect>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label" for="curriculum-percent">Percent Complete</label>
+                                        <InputNumber id="curriculum-percent" class="form-control" @bind-Value="studentCurriculum.PercentComplete" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label" for="curriculum-unit">Current Unit</label>
+                                        <InputText id="curriculum-unit" class="form-control" @bind-Value="studentCurriculum.CurrentUnit" />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label" for="curriculum-lesson">Current Lesson</label>
+                                        <InputText id="curriculum-lesson" class="form-control" @bind-Value="studentCurriculum.CurrentLesson" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label" for="curriculum-start">Start Date</label>
+                                        <InputDate id="curriculum-start" class="form-control" @bind-Value="studentCurriculum.StartDate" />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label" for="curriculum-target">Target End Date</label>
+                                        <InputDate id="curriculum-target" class="form-control" @bind-Value="studentCurriculum.TargetEndDate" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Save Progress</button>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private StudentCurriculum? studentCurriculum;
+    private string? statusMessage;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            studentCurriculum = await CurriculumService.GetStudentCurriculumByIdAsync(Id);
+            if (studentCurriculum is null)
+            {
+                errorMessage = "Student curriculum was not found.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (studentCurriculum is null)
+        {
+            return;
+        }
+
+        ClearMessages();
+        try
+        {
+            studentCurriculum = await CurriculumService.UpdateStudentCurriculumAsync(studentCurriculum);
+            studentCurriculum = await CurriculumService.GetStudentCurriculumByIdAsync(studentCurriculum.Id);
+            statusMessage = "Curriculum progress saved.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private static string GetStudentName(StudentCurriculum item)
+    {
+        return item.Student is null ? "Unknown student" : $"{item.Student.FirstName} {item.Student.LastName}";
+    }
+
+    private static string Display(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "-" : value;
+    }
+
+    private static string GetStatusLabel(CurriculumStatus status)
+    {
+        return status switch
+        {
+            CurriculumStatus.NotStarted => "Not Started",
+            CurriculumStatus.InProgress => "In Progress",
+            _ => status.ToString()
+        };
+    }
+
+    private void ClearMessages()
+    {
+        statusMessage = null;
+        errorMessage = null;
+    }
+}

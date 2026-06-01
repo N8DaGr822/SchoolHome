@@ -1,7 +1,12 @@
 @page "/students"
 @using HomeschoolManager.Application.Services
 @using HomeschoolManager.Core.Entities
+@using HomeschoolManager.Core.Interfaces
 @inject IStudentService StudentService
+@inject IParentNoteService ParentNoteService
+@inject ICourseService CourseService
+@inject IAssignmentService AssignmentService
+@inject ILessonPlanService LessonPlanService
 @inject IJSRuntime JS
 
 <PageTitle>Students - Homeschool Manager</PageTitle>
@@ -207,6 +212,62 @@
                 </div>
             </div>
         </div>
+
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <h5 class="mb-0">Parent Notes Timeline</h5>
+                        <button type="button" class="btn btn-sm btn-primary" @onclick="ShowAddNoteModal">
+                            <span class="oi oi-plus"></span> Add Note
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        @if (selectedStudentNotes.Any())
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var note in selectedStudentNotes)
+                                {
+                                    <div class="list-group-item px-0">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                                            <div>
+                                                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                                                    <strong>@note.Title</strong>
+                                                    <span class="badge bg-secondary">@GetCategoryLabel(note.Category)</span>
+                                                </div>
+                                                <p class="mb-1">@note.Content</p>
+                                                <small class="text-muted">
+                                                    @note.NoteDate.ToString("MM/dd/yyyy")
+                                                    @if (note.Course is not null)
+                                                    {
+                                                        <span> / @GetSubjectName(note.Course)</span>
+                                                    }
+                                                    @if (note.Assignment is not null)
+                                                    {
+                                                        <span> / @note.Assignment.Title</span>
+                                                    }
+                                                    @if (note.LessonPlan is not null)
+                                                    {
+                                                        <span> / @note.LessonPlan.Title</span>
+                                                    }
+                                                </small>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => DeleteNoteAsync(note)">
+                                                <span class="oi oi-trash"></span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0">No parent notes yet.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
     }
 </div>
 
@@ -287,6 +348,96 @@
     <div class="modal-backdrop fade show"></div>
 }
 
+@if (showNoteModal)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <EditForm Model="@noteForm" OnValidSubmit="SaveNoteAsync">
+                    <DataAnnotationsValidator />
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Parent Note</h5>
+                        <button type="button" class="btn-close" @onclick="CloseNoteModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ValidationSummary />
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label class="form-label" for="note-title">Title</label>
+                                    <InputText id="note-title" class="form-control" @bind-Value="noteForm.Title" />
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="note-date">Date</label>
+                                    <InputDate id="note-date" class="form-control" @bind-Value="noteForm.NoteDate" />
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="note-category">Category</label>
+                                    <InputSelect id="note-category" class="form-select" @bind-Value="noteForm.Category">
+                                        @foreach (var category in Enum.GetValues<ParentNoteCategory>())
+                                        {
+                                            <option value="@category">@GetCategoryLabel(category)</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="note-subject">Subject</label>
+                                    <InputSelect id="note-subject" class="form-select" @bind-Value="noteForm.SubjectId">
+                                        <option value="">None</option>
+                                        @foreach (var course in courses)
+                                        {
+                                            <option value="@course.Id">@GetSubjectName(course)</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label" for="note-assignment">Assignment</label>
+                                    <InputSelect id="note-assignment" class="form-select" @bind-Value="noteForm.AssignmentId">
+                                        <option value="">None</option>
+                                        @foreach (var assignment in studentAssignmentOptions)
+                                        {
+                                            <option value="@assignment.Id">@assignment.Title</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="note-lesson">Lesson Plan</label>
+                            <InputSelect id="note-lesson" class="form-select" @bind-Value="noteForm.LessonPlanId">
+                                <option value="">None</option>
+                                @foreach (var lesson in studentLessonOptions)
+                                {
+                                    <option value="@lesson.Id">@lesson.Title</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="note-content">Note</label>
+                            <InputTextArea id="note-content" class="form-control" rows="4" @bind-Value="noteForm.Content" />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseNoteModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Note</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
 @code {
     private readonly List<string> availableGradeLevels = new()
     {
@@ -295,17 +446,28 @@
     };
 
     private List<Student> students = new();
+    private List<Course> courses = new();
+    private List<Assignment> allAssignments = new();
+    private List<LessonPlan> allLessonPlans = new();
     private Student? selectedStudent;
     private List<Grade> selectedStudentGrades = new();
     private List<Assignment> selectedStudentAssignments = new();
+    private List<Assignment> studentAssignmentOptions = new();
+    private List<LessonPlan> studentLessonOptions = new();
+    private List<ParentNote> selectedStudentNotes = new();
     private Student studentForm = CreateDefaultStudent();
+    private ParentNote noteForm = CreateDefaultNote();
     private bool isLoading = true;
     private bool showStudentModal;
+    private bool showNoteModal;
     private bool isEditingStudent;
     private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
+        courses = (await CourseService.GetAllCoursesAsync()).ToList();
+        allAssignments = (await AssignmentService.GetAllAssignmentsAsync()).ToList();
+        allLessonPlans = (await LessonPlanService.GetAllLessonPlansAsync()).ToList();
         await LoadStudentsAsync();
     }
 
@@ -329,6 +491,9 @@
             {
                 selectedStudentGrades.Clear();
                 selectedStudentAssignments.Clear();
+                studentAssignmentOptions.Clear();
+                studentLessonOptions.Clear();
+                selectedStudentNotes.Clear();
             }
         }
         catch (Exception ex)
@@ -357,6 +522,16 @@
             .Where(a => a.Status != AssignmentStatus.Completed)
             .OrderBy(a => a.DueDate)
             .ToList();
+        studentAssignmentOptions = allAssignments
+            .Where(a => a.StudentId == studentId)
+            .OrderByDescending(a => a.DueDate)
+            .ToList();
+        studentLessonOptions = allLessonPlans
+            .Where(lp => lp.StudentId == studentId)
+            .OrderByDescending(lp => lp.PlannedDate)
+            .ToList();
+        selectedStudentNotes = (await ParentNoteService.GetNotesAsync(new ParentNoteFilter(StudentId: studentId)))
+            .ToList();
     }
 
     private void ShowAddStudentModal()
@@ -376,6 +551,23 @@
     private void CloseStudentModal()
     {
         showStudentModal = false;
+    }
+
+    private void ShowAddNoteModal()
+    {
+        if (selectedStudent is null)
+        {
+            return;
+        }
+
+        noteForm = CreateDefaultNote();
+        noteForm.StudentId = selectedStudent.Id;
+        showNoteModal = true;
+    }
+
+    private void CloseNoteModal()
+    {
+        showNoteModal = false;
     }
 
     private async Task SaveStudent()
@@ -401,6 +593,31 @@
         await LoadStudentsAsync();
     }
 
+    private async Task SaveNoteAsync()
+    {
+        if (selectedStudent is null)
+        {
+            return;
+        }
+
+        noteForm.StudentId = selectedStudent.Id;
+        await ParentNoteService.CreateNoteAsync(noteForm);
+        showNoteModal = false;
+        await LoadStudentDataAsync(selectedStudent.Id);
+    }
+
+    private async Task DeleteNoteAsync(ParentNote note)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete note \"{note.Title}\"?");
+        if (!confirmed || selectedStudent is null)
+        {
+            return;
+        }
+
+        await ParentNoteService.DeleteNoteAsync(note.Id);
+        await LoadStudentDataAsync(selectedStudent.Id);
+    }
+
     private static Student CreateDefaultStudent()
     {
         return new Student
@@ -408,6 +625,15 @@
             DateOfBirth = DateTime.Today.AddYears(-6),
             EnrollmentDate = DateTime.Today,
             CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    private static ParentNote CreateDefaultNote()
+    {
+        return new ParentNote
+        {
+            NoteDate = DateTime.Today,
+            Category = ParentNoteCategory.General
         };
     }
 
@@ -466,6 +692,20 @@
             AssignmentStatus.Assigned => "secondary",
             AssignmentStatus.Overdue => "danger",
             _ => "secondary"
+        };
+    }
+
+    private static string GetSubjectName(Course course)
+    {
+        return string.IsNullOrWhiteSpace(course.Subject) ? course.Name : course.Subject;
+    }
+
+    private static string GetCategoryLabel(ParentNoteCategory category)
+    {
+        return category switch
+        {
+            ParentNoteCategory.Breakthrough => "Breakthrough",
+            _ => category.ToString()
         };
     }
 }

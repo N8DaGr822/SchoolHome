@@ -1,0 +1,90 @@
+@implements IAsyncDisposable
+
+<div class="yearbook-page-canvas-shell">
+    <div class="yearbook-page-canvas"
+         @ref="canvasElement"
+         role="group"
+         aria-label="@($"{Page.Title} layout canvas")"
+         @onclick="DeselectAsync">
+        @foreach (var element in Page.Elements.OrderBy(e => e.ZIndex))
+        {
+            <EditableElement Element="element"
+                             IsSelected="@(SelectedElementId == element.Id)"
+                             OnSelected="SelectElementAsync" />
+        }
+    </div>
+</div>
+
+@code {
+    [Inject]
+    private IJSRuntime JS { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public YearbookPage Page { get; set; } = null!;
+
+    [Parameter]
+    public Guid? SelectedElementId { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid?> SelectedElementIdChanged { get; set; }
+
+    private ElementReference canvasElement;
+    private DotNetObjectReference<PageCanvas>? dotNetReference;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        dotNetReference = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("yearbookEditor.initialize", canvasElement, dotNetReference);
+    }
+
+    private async Task SelectElementAsync(PageElement element)
+    {
+        SelectedElementId = element.Id;
+        await SelectedElementIdChanged.InvokeAsync(SelectedElementId);
+    }
+
+    private async Task DeselectAsync()
+    {
+        SelectedElementId = null;
+        await SelectedElementIdChanged.InvokeAsync(null);
+    }
+
+    [JSInvokable]
+    public Task OnElementMovedOrResized(ElementLayoutUpdate update)
+    {
+        var element = Page.Elements.FirstOrDefault(e => e.Id == update.Id);
+        if (element is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        element.X = update.X;
+        element.Y = update.Y;
+        element.Width = update.Width;
+        element.Height = update.Height;
+        StateHasChanged();
+
+        return Task.CompletedTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("yearbookEditor.dispose", canvasElement);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        dotNetReference?.Dispose();
+    }
+}
