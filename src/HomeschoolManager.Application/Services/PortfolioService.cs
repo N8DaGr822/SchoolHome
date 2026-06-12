@@ -1,5 +1,7 @@
 using HomeschoolManager.Core.Entities;
 using HomeschoolManager.Core.Interfaces;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HomeschoolManager.Application.Services;
 
@@ -7,13 +9,16 @@ public class PortfolioService : IPortfolioService
 {
     private readonly IPortfolioRepository _portfolioRepository;
     private readonly IPortfolioFileStorage _fileStorage;
+    private readonly ILogger<PortfolioService> _logger;
 
     public PortfolioService(
         IPortfolioRepository portfolioRepository,
-        IPortfolioFileStorage fileStorage)
+        IPortfolioFileStorage fileStorage,
+        ILogger<PortfolioService>? logger = null)
     {
         _portfolioRepository = portfolioRepository;
         _fileStorage = fileStorage;
+        _logger = logger ?? NullLogger<PortfolioService>.Instance;
     }
 
     public async Task<PortfolioItem?> GetItemByIdAsync(int id)
@@ -31,7 +36,13 @@ public class PortfolioService : IPortfolioService
         Normalize(item);
         if (upload is not null)
         {
-            ApplyStoredFile(item, await _fileStorage.SaveAsync(upload.Stream, upload.FileName, upload.ContentType));
+            var storedFile = await _fileStorage.SaveAsync(upload.Stream, upload.FileName, upload.ContentType);
+            ApplyStoredFile(item, storedFile);
+            _logger.LogInformation(
+                "Stored portfolio file {StoredFileName} ({SizeBytes} bytes) for student {StudentId}.",
+                storedFile.StoredFileName,
+                storedFile.SizeBytes,
+                item.StudentId);
         }
 
         item.CreatedAt = DateTime.UtcNow;
@@ -70,6 +81,10 @@ public class PortfolioService : IPortfolioService
         if (existing is not null)
         {
             await _fileStorage.DeleteAsync(existing.StoredFilePath);
+            if (!string.IsNullOrWhiteSpace(existing.StoredFilePath))
+            {
+                _logger.LogInformation("Deleted stored portfolio file for item {ItemId}.", id);
+            }
         }
 
         await _portfolioRepository.DeleteAsync(id);

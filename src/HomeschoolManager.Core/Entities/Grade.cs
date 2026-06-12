@@ -1,6 +1,8 @@
+using HomeschoolManager.Core.Interfaces;
+
 namespace HomeschoolManager.Core.Entities;
 
-public class Grade
+public class Grade : IEntity
 {
     public int Id { get; set; }
     public decimal Score { get; set; }
@@ -11,11 +13,10 @@ public class Grade
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
-    // Additional properties for UI compatibility
+    // Denormalized display fields
     public string Subject { get; set; } = string.Empty;
     public string Assignment { get; set; } = string.Empty;
     public string GradeValue { get; set; } = string.Empty;
-    public DateTime Date { get; set; }
 
     // Navigation properties
     public Assignment AssignmentEntity { get; set; } = null!;

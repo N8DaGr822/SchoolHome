@@ -117,10 +117,10 @@ internal static class SeedData
             ],
             Grades =
             [
-                new() { Id = 1, StudentId = 1, AssignmentId = 1, Subject = "Math", Assignment = "Fractions Test", GradeValue = "A", Score = 96, Date = DateTime.Today.AddDays(-2), GradedDate = DateTime.Today.AddDays(-2), CreatedAt = new DateTime(2024, 8, 10) },
-                new() { Id = 2, StudentId = 1, AssignmentId = 1, Subject = "Science", Assignment = "Experiment Report", GradeValue = "A-", Score = 91, Date = DateTime.Today.AddDays(-5), GradedDate = DateTime.Today.AddDays(-5), CreatedAt = new DateTime(2024, 8, 10) },
-                new() { Id = 3, StudentId = 2, AssignmentId = 2, Subject = "Language Arts", Assignment = "Book Report", GradeValue = "B+", Score = 88, Date = DateTime.Today.AddDays(-7), GradedDate = DateTime.Today.AddDays(-7), CreatedAt = new DateTime(2024, 8, 10) },
-                new() { Id = 4, StudentId = 3, AssignmentId = 3, Subject = "History", Assignment = "Timeline Project", GradeValue = "A", Score = 95, Date = DateTime.Today.AddDays(-10), GradedDate = DateTime.Today.AddDays(-10), CreatedAt = new DateTime(2024, 8, 10) }
+                new() { Id = 1, StudentId = 1, AssignmentId = 1, Subject = "Math", Assignment = "Fractions Test", GradeValue = "A", Score = 96, GradedDate = DateTime.Today.AddDays(-2), CreatedAt = new DateTime(2024, 8, 10) },
+                new() { Id = 2, StudentId = 1, AssignmentId = 1, Subject = "Science", Assignment = "Experiment Report", GradeValue = "A-", Score = 91, GradedDate = DateTime.Today.AddDays(-5), CreatedAt = new DateTime(2024, 8, 10) },
+                new() { Id = 3, StudentId = 2, AssignmentId = 2, Subject = "Language Arts", Assignment = "Book Report", GradeValue = "B+", Score = 88, GradedDate = DateTime.Today.AddDays(-7), CreatedAt = new DateTime(2024, 8, 10) },
+                new() { Id = 4, StudentId = 3, AssignmentId = 3, Subject = "History", Assignment = "Timeline Project", GradeValue = "A", Score = 95, GradedDate = DateTime.Today.AddDays(-10), CreatedAt = new DateTime(2024, 8, 10) }
             ],
             AttendanceRecords =
             [

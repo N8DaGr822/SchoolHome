@@ -1,8 +1,9 @@
 namespace HomeschoolManager.Core.Entities;
 
 using System.ComponentModel.DataAnnotations;
+using HomeschoolManager.Core.Interfaces;
 
-public class CurriculumResource
+public class CurriculumResource : IEntity
 {
     public int Id { get; set; }
 

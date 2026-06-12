@@ -1,9 +1,10 @@
 namespace HomeschoolManager.Core.Entities;
 
 using System.ComponentModel.DataAnnotations;
+using HomeschoolManager.Core.Interfaces;
 using HomeschoolManager.Core.Validation;
 
-public class Student
+public class Student : IEntity
 {
     public int Id { get; set; }
 

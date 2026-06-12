@@ -2,7 +2,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.ComponentModel.DataAnnotations;
 using HomeschoolManager.Core.Entities;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace HomeschoolManager.Infrastructure.Data;
 
@@ -16,19 +18,22 @@ public sealed class HomeschoolDataStore
 
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly string _filePath;
+    private readonly ILogger<HomeschoolDataStore> _logger;
     private HomeschoolData? _data;
 
     public string FilePath => _filePath;
     public string BackupFilePath => $"{_filePath}.bak";
 
-    public HomeschoolDataStore(IConfiguration configuration)
+    public HomeschoolDataStore(IOptions<StorageOptions> options, ILogger<HomeschoolDataStore>? logger = null)
     {
-        _filePath = Path.GetFullPath(ResolveDataFilePath(configuration));
+        _filePath = Path.GetFullPath(options.Value.ResolveFilePath());
+        _logger = logger ?? NullLogger<HomeschoolDataStore>.Instance;
     }
 
-    public HomeschoolDataStore(string filePath)
+    public HomeschoolDataStore(string filePath, ILogger<HomeschoolDataStore>? logger = null)
     {
         _filePath = Path.GetFullPath(filePath);
+        _logger = logger ?? NullLogger<HomeschoolDataStore>.Instance;
     }
 
     public async Task<string> ExportJsonAsync()
@@ -60,6 +65,11 @@ public sealed class HomeschoolDataStore
         {
             _data = imported;
             await SaveAsync(_data);
+            _logger.LogInformation(
+                "Imported homeschool backup with {StudentCount} student(s) and {CourseCount} course(s) into {FilePath}.",
+                imported.Students.Count,
+                imported.Courses.Count,
+                _filePath);
         }
         finally
         {
@@ -113,6 +123,7 @@ public sealed class HomeschoolDataStore
 
         if (!File.Exists(_filePath))
         {
+            _logger.LogInformation("No data file found at {FilePath}; creating seed data.", _filePath);
             _data = SeedData.Create();
             await SaveAsync(_data);
             return _data;
@@ -121,6 +132,7 @@ public sealed class HomeschoolDataStore
         await using var stream = File.OpenRead(_filePath);
         _data = await JsonSerializer.DeserializeAsync<HomeschoolData>(stream, JsonOptions) ?? new HomeschoolData();
         PrepareForStorage(_data);
+        _logger.LogInformation("Loaded homeschool data from {FilePath}.", _filePath);
         return _data;
     }
 
@@ -157,8 +169,9 @@ public sealed class HomeschoolDataStore
                 File.Move(tempPath, _filePath);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to save homeschool data to {FilePath}.", _filePath);
             if (File.Exists(tempPath))
             {
                 File.Delete(tempPath);
@@ -166,22 +179,6 @@ public sealed class HomeschoolDataStore
 
             throw;
         }
-    }
-
-    private static string ResolveDataFilePath(IConfiguration configuration)
-    {
-        var configuredPath = configuration["DataStorage:FilePath"] ?? configuration["DataFilePath"];
-        if (!string.IsNullOrWhiteSpace(configuredPath))
-        {
-            return configuredPath;
-        }
-
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var storageRoot = string.IsNullOrWhiteSpace(localAppData)
-            ? AppContext.BaseDirectory
-            : Path.Combine(localAppData, "HomeschoolManager");
-
-        return Path.Combine(storageRoot, "homeschool-data.json");
     }
 
     private static void Normalize(HomeschoolData data)

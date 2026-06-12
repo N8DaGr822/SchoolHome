@@ -1,8 +1,9 @@
 namespace HomeschoolManager.Core.Entities;
 
 using System.ComponentModel.DataAnnotations;
+using HomeschoolManager.Core.Interfaces;
 
-public class Yearbook
+public class Yearbook : IEntity
 {
     public int Id { get; set; }
 

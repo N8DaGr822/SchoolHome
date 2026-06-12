@@ -4,80 +4,52 @@ using HomeschoolManager.Infrastructure.Data;
 
 namespace HomeschoolManager.Infrastructure.Repositories;
 
-public class JsonAttendanceRepository : IAttendanceRepository
+public class JsonAttendanceRepository : JsonRepositoryBase<AttendanceRecord>, IAttendanceRepository
 {
-    private readonly HomeschoolDataStore _store;
-
     public JsonAttendanceRepository(HomeschoolDataStore store)
+        : base(store)
     {
-        _store = store;
     }
 
-    public async Task<AttendanceRecord?> GetByIdAsync(int id)
+    private protected override List<AttendanceRecord> Items(HomeschoolData data) => data.AttendanceRecords;
+
+    protected override string EntityLabel => "Attendance record";
+
+    private protected override AttendanceRecord Hydrate(HomeschoolData data, AttendanceRecord entity) =>
+        RepositoryProjection.HydrateAttendanceRecord(data, entity);
+
+    protected override AttendanceRecord Normalize(AttendanceRecord entity)
     {
-        var data = await _store.ReadAsync();
-        var attendanceRecord = data.AttendanceRecords.FirstOrDefault(a => a.Id == id);
-        return attendanceRecord == null ? null : RepositoryProjection.HydrateAttendanceRecord(data, attendanceRecord);
+        entity.Date = entity.Date.Date;
+        entity.Notes = entity.Notes?.Trim() ?? string.Empty;
+        return entity;
     }
 
-    public async Task<IEnumerable<AttendanceRecord>> GetAllAsync()
-    {
-        var data = await _store.ReadAsync();
-        return data.AttendanceRecords
-            .OrderByDescending(a => a.Date)
-            .ThenBy(a => GetStudentName(data, a.StudentId))
-            .Select(a => RepositoryProjection.HydrateAttendanceRecord(data, a))
-            .ToList();
-    }
+    private protected override IEnumerable<AttendanceRecord> Order(HomeschoolData data, IEnumerable<AttendanceRecord> items) =>
+        items.OrderByDescending(a => a.Date).ThenBy(a => GetStudentName(data, a.StudentId));
 
-    public async Task<AttendanceRecord> AddAsync(AttendanceRecord entity)
+    private protected override void Validate(HomeschoolData data, AttendanceRecord entity)
     {
-        var saved = Normalize(HomeschoolDataStore.Clone(entity));
-        await _store.WriteAsync(data =>
+        if (entity.StudentId <= 0 || !data.Students.Any(s => s.Id == entity.StudentId))
         {
-            ValidateStudentExists(data, saved.StudentId);
-            EnsureUniqueStudentDate(data, saved.StudentId, saved.Date, ignoreId: null);
-            saved.Id = saved.Id == 0 ? NextId(data.AttendanceRecords.Select(a => a.Id)) : saved.Id;
-            saved.CreatedAt = saved.CreatedAt == default ? DateTime.UtcNow : saved.CreatedAt;
-            data.AttendanceRecords.Add(saved);
-        });
+            throw new InvalidOperationException("A valid student is required.");
+        }
 
-        return await GetByIdAsync(saved.Id) ?? saved;
-    }
+        var duplicate = data.AttendanceRecords.Any(a =>
+            a.StudentId == entity.StudentId &&
+            a.Date.Date == entity.Date.Date &&
+            a.Id != entity.Id);
 
-    public async Task UpdateAsync(AttendanceRecord entity)
-    {
-        var updated = Normalize(HomeschoolDataStore.Clone(entity));
-        await _store.WriteAsync(data =>
+        if (duplicate)
         {
-            var index = data.AttendanceRecords.FindIndex(a => a.Id == updated.Id);
-            if (index < 0)
-            {
-                throw new InvalidOperationException($"Attendance record {updated.Id} was not found.");
-            }
-
-            ValidateStudentExists(data, updated.StudentId);
-            EnsureUniqueStudentDate(data, updated.StudentId, updated.Date, updated.Id);
-            updated.CreatedAt = updated.CreatedAt == default ? data.AttendanceRecords[index].CreatedAt : updated.CreatedAt;
-            data.AttendanceRecords[index] = updated;
-        });
-    }
-
-    public async Task DeleteAsync(int id)
-    {
-        await _store.WriteAsync(data => data.AttendanceRecords.RemoveAll(a => a.Id == id));
-    }
-
-    public async Task<bool> ExistsAsync(int id)
-    {
-        var data = await _store.ReadAsync();
-        return data.AttendanceRecords.Any(a => a.Id == id);
+            throw new InvalidOperationException($"Attendance for this student is already recorded on {entity.Date:MM/dd/yyyy}.");
+        }
     }
 
     public async Task<IEnumerable<AttendanceRecord>> GetByDateAsync(DateTime date)
     {
         var targetDate = date.Date;
-        var data = await _store.ReadAsync();
+        var data = await Store.ReadAsync();
         return data.AttendanceRecords
             .Where(a => a.Date.Date == targetDate)
             .OrderBy(a => GetStudentName(data, a.StudentId))
@@ -94,7 +66,7 @@ public class JsonAttendanceRepository : IAttendanceRepository
             (start, end) = (end, start);
         }
 
-        var data = await _store.ReadAsync();
+        var data = await Store.ReadAsync();
         return data.AttendanceRecords
             .Where(a => a.Date.Date >= start && a.Date.Date <= end)
             .OrderBy(a => a.Date)
@@ -105,7 +77,7 @@ public class JsonAttendanceRepository : IAttendanceRepository
 
     public async Task<IEnumerable<AttendanceRecord>> GetByStudentIdAsync(int studentId)
     {
-        var data = await _store.ReadAsync();
+        var data = await Store.ReadAsync();
         return data.AttendanceRecords
             .Where(a => a.StudentId == studentId)
             .OrderByDescending(a => a.Date)
@@ -116,53 +88,16 @@ public class JsonAttendanceRepository : IAttendanceRepository
     public async Task<AttendanceRecord?> GetByStudentAndDateAsync(int studentId, DateTime date)
     {
         var targetDate = date.Date;
-        var data = await _store.ReadAsync();
+        var data = await Store.ReadAsync();
         var attendanceRecord = data.AttendanceRecords
             .FirstOrDefault(a => a.StudentId == studentId && a.Date.Date == targetDate);
 
         return attendanceRecord == null ? null : RepositoryProjection.HydrateAttendanceRecord(data, attendanceRecord);
     }
 
-    private static AttendanceRecord Normalize(AttendanceRecord attendanceRecord)
-    {
-        attendanceRecord.Date = attendanceRecord.Date.Date;
-        attendanceRecord.Notes = attendanceRecord.Notes?.Trim() ?? string.Empty;
-        return attendanceRecord;
-    }
-
-    private static void ValidateStudentExists(HomeschoolData data, int studentId)
-    {
-        if (studentId <= 0 || !data.Students.Any(s => s.Id == studentId))
-        {
-            throw new InvalidOperationException("A valid student is required.");
-        }
-    }
-
-    private static void EnsureUniqueStudentDate(
-        HomeschoolData data,
-        int studentId,
-        DateTime date,
-        int? ignoreId)
-    {
-        var duplicate = data.AttendanceRecords.Any(a =>
-            a.StudentId == studentId &&
-            a.Date.Date == date.Date &&
-            (!ignoreId.HasValue || a.Id != ignoreId.Value));
-
-        if (duplicate)
-        {
-            throw new InvalidOperationException($"Attendance for this student is already recorded on {date:MM/dd/yyyy}.");
-        }
-    }
-
     private static string GetStudentName(HomeschoolData data, int studentId)
     {
         var student = data.Students.FirstOrDefault(s => s.Id == studentId);
         return student == null ? string.Empty : $"{student.LastName}, {student.FirstName}";
-    }
-
-    private static int NextId(IEnumerable<int> ids)
-    {
-        return ids.DefaultIfEmpty(0).Max() + 1;
     }
 }

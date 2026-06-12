@@ -4,74 +4,77 @@ using HomeschoolManager.Infrastructure.Data;
 
 namespace HomeschoolManager.Infrastructure.Repositories;
 
-public class JsonPortfolioRepository : IPortfolioRepository
+public class JsonPortfolioRepository : JsonRepositoryBase<PortfolioItem>, IPortfolioRepository
 {
-    private readonly HomeschoolDataStore _store;
-
     public JsonPortfolioRepository(HomeschoolDataStore store)
+        : base(store)
     {
-        _store = store;
     }
 
-    public async Task<PortfolioItem?> GetByIdAsync(int id)
+    private protected override List<PortfolioItem> Items(HomeschoolData data) => data.PortfolioItems;
+
+    protected override string EntityLabel => "Portfolio item";
+
+    private protected override PortfolioItem Hydrate(HomeschoolData data, PortfolioItem entity) =>
+        RepositoryProjection.HydratePortfolioItem(data, entity);
+
+    protected override PortfolioItem Normalize(PortfolioItem entity)
     {
-        var data = await _store.ReadAsync();
-        var item = data.PortfolioItems.FirstOrDefault(i => i.Id == id);
-        return item == null ? null : RepositoryProjection.HydratePortfolioItem(data, item);
+        entity.Date = entity.Date.Date;
+        entity.Title = entity.Title?.Trim() ?? string.Empty;
+        entity.Description = entity.Description?.Trim() ?? string.Empty;
+        entity.Notes = entity.Notes?.Trim() ?? string.Empty;
+        entity.Subject = entity.Subject?.Trim() ?? string.Empty;
+        entity.ExternalUrl = entity.ExternalUrl?.Trim() ?? string.Empty;
+        entity.Tags = entity.Tags?.Trim() ?? string.Empty;
+        return entity;
     }
 
-    public async Task<IEnumerable<PortfolioItem>> GetAllAsync()
+    private protected override IEnumerable<PortfolioItem> Order(HomeschoolData data, IEnumerable<PortfolioItem> items) =>
+        items.OrderByDescending(i => i.Date).ThenBy(i => i.Title);
+
+    private protected override void Validate(HomeschoolData data, PortfolioItem entity)
+    {
+        if (entity.StudentId <= 0 || !data.Students.Any(s => s.Id == entity.StudentId))
+        {
+            throw new InvalidOperationException("A valid student is required.");
+        }
+
+        if (entity.SubjectId <= 0 || !data.Courses.Any(c => c.Id == entity.SubjectId))
+        {
+            throw new InvalidOperationException("A valid subject is required.");
+        }
+
+        if (entity.AssignmentId.HasValue && !data.Assignments.Any(a => a.Id == entity.AssignmentId.Value))
+        {
+            throw new InvalidOperationException("The linked assignment was not found.");
+        }
+
+        if (entity.LessonPlanId.HasValue && !data.LessonPlans.Any(lp => lp.Id == entity.LessonPlanId.Value))
+        {
+            throw new InvalidOperationException("The linked lesson plan was not found.");
+        }
+    }
+
+    private protected override void OnSaving(HomeschoolData data, PortfolioItem entity)
+    {
+        if (!string.IsNullOrWhiteSpace(entity.Subject))
+        {
+            return;
+        }
+
+        var course = data.Courses.FirstOrDefault(c => c.Id == entity.SubjectId);
+        entity.Subject = course == null ? string.Empty : string.IsNullOrWhiteSpace(course.Subject) ? course.Name : course.Subject;
+    }
+
+    public override async Task<IEnumerable<PortfolioItem>> GetAllAsync()
     {
         return await GetFilteredAsync(new PortfolioFilter());
     }
 
-    public async Task<PortfolioItem> AddAsync(PortfolioItem entity)
-    {
-        var saved = Normalize(HomeschoolDataStore.Clone(entity));
-        await _store.WriteAsync(data =>
-        {
-            ValidateReferences(data, saved);
-            FillSubject(data, saved);
-            saved.Id = saved.Id == 0 ? NextId(data.PortfolioItems.Select(i => i.Id)) : saved.Id;
-            saved.CreatedAt = saved.CreatedAt == default ? DateTime.UtcNow : saved.CreatedAt;
-            data.PortfolioItems.Add(saved);
-        });
-
-        return await GetByIdAsync(saved.Id) ?? saved;
-    }
-
-    public async Task UpdateAsync(PortfolioItem entity)
-    {
-        var updated = Normalize(HomeschoolDataStore.Clone(entity));
-        await _store.WriteAsync(data =>
-        {
-            var index = data.PortfolioItems.FindIndex(i => i.Id == updated.Id);
-            if (index < 0)
-            {
-                throw new InvalidOperationException($"Portfolio item {updated.Id} was not found.");
-            }
-
-            ValidateReferences(data, updated);
-            FillSubject(data, updated);
-            updated.CreatedAt = updated.CreatedAt == default ? data.PortfolioItems[index].CreatedAt : updated.CreatedAt;
-            data.PortfolioItems[index] = updated;
-        });
-    }
-
-    public async Task DeleteAsync(int id)
-    {
-        await _store.WriteAsync(data => data.PortfolioItems.RemoveAll(i => i.Id == id));
-    }
-
-    public async Task<bool> ExistsAsync(int id)
-    {
-        var data = await _store.ReadAsync();
-        return data.PortfolioItems.Any(i => i.Id == id);
-    }
-
     public async Task<IEnumerable<PortfolioItem>> GetFilteredAsync(PortfolioFilter filter)
     {
-        var data = await _store.ReadAsync();
+        var data = await Store.ReadAsync();
         var query = data.PortfolioItems.AsEnumerable();
 
         if (filter.StudentId.HasValue && filter.StudentId.Value > 0)
@@ -118,7 +121,7 @@ public class JsonPortfolioRepository : IPortfolioRepository
 
     public async Task<IEnumerable<PortfolioItem>> GetByAssignmentIdAsync(int assignmentId)
     {
-        var data = await _store.ReadAsync();
+        var data = await Store.ReadAsync();
         return data.PortfolioItems
             .Where(i => i.AssignmentId == assignmentId)
             .OrderByDescending(i => i.Date)
@@ -128,62 +131,11 @@ public class JsonPortfolioRepository : IPortfolioRepository
 
     public async Task<IEnumerable<PortfolioItem>> GetByLessonPlanIdAsync(int lessonPlanId)
     {
-        var data = await _store.ReadAsync();
+        var data = await Store.ReadAsync();
         return data.PortfolioItems
             .Where(i => i.LessonPlanId == lessonPlanId)
             .OrderByDescending(i => i.Date)
             .Select(i => RepositoryProjection.HydratePortfolioItem(data, i))
             .ToList();
-    }
-
-    private static PortfolioItem Normalize(PortfolioItem item)
-    {
-        item.Date = item.Date.Date;
-        item.Title = item.Title?.Trim() ?? string.Empty;
-        item.Description = item.Description?.Trim() ?? string.Empty;
-        item.Notes = item.Notes?.Trim() ?? string.Empty;
-        item.Subject = item.Subject?.Trim() ?? string.Empty;
-        item.ExternalUrl = item.ExternalUrl?.Trim() ?? string.Empty;
-        item.Tags = item.Tags?.Trim() ?? string.Empty;
-        return item;
-    }
-
-    private static void ValidateReferences(HomeschoolData data, PortfolioItem item)
-    {
-        if (item.StudentId <= 0 || !data.Students.Any(s => s.Id == item.StudentId))
-        {
-            throw new InvalidOperationException("A valid student is required.");
-        }
-
-        if (item.SubjectId <= 0 || !data.Courses.Any(c => c.Id == item.SubjectId))
-        {
-            throw new InvalidOperationException("A valid subject is required.");
-        }
-
-        if (item.AssignmentId.HasValue && !data.Assignments.Any(a => a.Id == item.AssignmentId.Value))
-        {
-            throw new InvalidOperationException("The linked assignment was not found.");
-        }
-
-        if (item.LessonPlanId.HasValue && !data.LessonPlans.Any(lp => lp.Id == item.LessonPlanId.Value))
-        {
-            throw new InvalidOperationException("The linked lesson plan was not found.");
-        }
-    }
-
-    private static void FillSubject(HomeschoolData data, PortfolioItem item)
-    {
-        if (!string.IsNullOrWhiteSpace(item.Subject))
-        {
-            return;
-        }
-
-        var course = data.Courses.FirstOrDefault(c => c.Id == item.SubjectId);
-        item.Subject = course == null ? string.Empty : string.IsNullOrWhiteSpace(course.Subject) ? course.Name : course.Subject;
-    }
-
-    private static int NextId(IEnumerable<int> ids)
-    {
-        return ids.DefaultIfEmpty(0).Max() + 1;
     }
 }

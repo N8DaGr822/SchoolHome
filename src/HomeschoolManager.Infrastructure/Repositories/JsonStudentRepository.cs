@@ -4,85 +4,37 @@ using HomeschoolManager.Infrastructure.Data;
 
 namespace HomeschoolManager.Infrastructure.Repositories;
 
-public class JsonStudentRepository : IStudentRepository
+public class JsonStudentRepository : JsonRepositoryBase<Student>, IStudentRepository
 {
-    private readonly HomeschoolDataStore _store;
-
     public JsonStudentRepository(HomeschoolDataStore store)
+        : base(store)
     {
-        _store = store;
     }
 
-    public async Task<Student?> GetByIdAsync(int id)
+    private protected override List<Student> Items(HomeschoolData data) => data.Students;
+
+    protected override string EntityLabel => "Student";
+
+    private protected override Student Hydrate(HomeschoolData data, Student entity) =>
+        RepositoryProjection.HydrateStudent(data, entity);
+
+    private protected override IEnumerable<Student> Order(HomeschoolData data, IEnumerable<Student> items) =>
+        items.OrderBy(s => s.LastName).ThenBy(s => s.FirstName);
+
+    private protected override void OnDeleting(HomeschoolData data, int id)
     {
-        var data = await _store.ReadAsync();
-        var student = data.Students.FirstOrDefault(s => s.Id == id);
-        return student == null ? null : RepositoryProjection.HydrateStudent(data, student);
-    }
-
-    public async Task<IEnumerable<Student>> GetAllAsync()
-    {
-        var data = await _store.ReadAsync();
-        return data.Students
-            .OrderBy(s => s.LastName)
-            .ThenBy(s => s.FirstName)
-            .Select(s => RepositoryProjection.HydrateStudent(data, s))
-            .ToList();
-    }
-
-    public async Task<Student> AddAsync(Student entity)
-    {
-        var saved = HomeschoolDataStore.Clone(entity);
-        await _store.WriteAsync(data =>
-        {
-            saved.Id = saved.Id == 0 ? NextId(data.Students.Select(s => s.Id)) : saved.Id;
-            saved.CreatedAt = saved.CreatedAt == default ? DateTime.UtcNow : saved.CreatedAt;
-            data.Students.Add(saved);
-        });
-
-        return await GetByIdAsync(saved.Id) ?? saved;
-    }
-
-    public async Task UpdateAsync(Student entity)
-    {
-        var updated = HomeschoolDataStore.Clone(entity);
-        await _store.WriteAsync(data =>
-        {
-            var index = data.Students.FindIndex(s => s.Id == updated.Id);
-            if (index < 0)
-            {
-                throw new InvalidOperationException($"Student {updated.Id} was not found.");
-            }
-
-            updated.CreatedAt = updated.CreatedAt == default ? data.Students[index].CreatedAt : updated.CreatedAt;
-            data.Students[index] = updated;
-        });
-    }
-
-    public async Task DeleteAsync(int id)
-    {
-        await _store.WriteAsync(data =>
-        {
-            data.Students.RemoveAll(s => s.Id == id);
-            data.Assignments.RemoveAll(a => a.StudentId == id);
-            data.Grades.RemoveAll(g => g.StudentId == id);
-            data.AttendanceRecords.RemoveAll(a => a.StudentId == id);
-            data.LearningTimeEntries.RemoveAll(e => e.StudentId == id);
-            data.PortfolioItems.RemoveAll(i => i.StudentId == id);
-            data.StudentCurricula.RemoveAll(c => c.StudentId == id);
-            data.ParentNotes.RemoveAll(n => n.StudentId == id);
-        });
-    }
-
-    public async Task<bool> ExistsAsync(int id)
-    {
-        var data = await _store.ReadAsync();
-        return data.Students.Any(s => s.Id == id);
+        data.Assignments.RemoveAll(a => a.StudentId == id);
+        data.Grades.RemoveAll(g => g.StudentId == id);
+        data.AttendanceRecords.RemoveAll(a => a.StudentId == id);
+        data.LearningTimeEntries.RemoveAll(e => e.StudentId == id);
+        data.PortfolioItems.RemoveAll(i => i.StudentId == id);
+        data.StudentCurricula.RemoveAll(c => c.StudentId == id);
+        data.ParentNotes.RemoveAll(n => n.StudentId == id);
     }
 
     public async Task<IEnumerable<Student>> GetByGradeLevelAsync(string gradeLevel)
     {
-        var data = await _store.ReadAsync();
+        var data = await Store.ReadAsync();
         return data.Students
             .Where(s => s.GradeLevel.Equals(gradeLevel, StringComparison.OrdinalIgnoreCase))
             .Select(s => RepositoryProjection.HydrateStudent(data, s))
@@ -107,10 +59,5 @@ public class JsonStudentRepository : IStudentRepository
     public async Task<Student?> GetWithGradesAsync(int id)
     {
         return await GetByIdAsync(id);
-    }
-
-    private static int NextId(IEnumerable<int> ids)
-    {
-        return ids.DefaultIfEmpty(0).Max() + 1;
     }
 }

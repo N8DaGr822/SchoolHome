@@ -2,8 +2,7 @@ using HomeschoolManager.Core.Entities;
 using HomeschoolManager.Core.Interfaces;
 using HomeschoolManager.Infrastructure.Data;
 using HomeschoolManager.Infrastructure.Repositories;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Primitives;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace HomeschoolManager.Tests.Integration;
@@ -58,8 +57,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public void DataStore_UsesLocalAppDataByDefault()
     {
-        var configuration = new TestConfiguration();
-        var store = new HomeschoolDataStore(configuration);
+        var store = new HomeschoolDataStore(Options.Create(new StorageOptions()));
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var expectedRoot = string.IsNullOrWhiteSpace(localAppData)
             ? AppContext.BaseDirectory
@@ -74,10 +72,8 @@ public class JsonRepositoryTests : IDisposable
     public void DataStore_UsesConfiguredStoragePath()
     {
         var customPath = Path.Combine(_testDirectory, "custom-data.json");
-        var configuration = new TestConfiguration();
-        configuration["DataStorage:FilePath"] = customPath;
 
-        var store = new HomeschoolDataStore(configuration);
+        var store = new HomeschoolDataStore(Options.Create(new StorageOptions { FilePath = customPath }));
 
         Assert.Equal(Path.GetFullPath(customPath), store.FilePath);
     }
@@ -607,89 +603,6 @@ public class JsonRepositoryTests : IDisposable
         if (Directory.Exists(_testDirectory))
         {
             Directory.Delete(_testDirectory, recursive: true);
-        }
-    }
-
-    private sealed class TestConfiguration : IConfiguration
-    {
-        private readonly Dictionary<string, string?> _values = new();
-
-        public string? this[string key]
-        {
-            get => _values.TryGetValue(key, out var value) ? value : null;
-            set => _values[key] = value;
-        }
-
-        public IEnumerable<IConfigurationSection> GetChildren()
-        {
-            return Array.Empty<IConfigurationSection>();
-        }
-
-        public IChangeToken GetReloadToken()
-        {
-            return TestChangeToken.Instance;
-        }
-
-        public IConfigurationSection GetSection(string key)
-        {
-            return new TestConfigurationSection(key, this[key]);
-        }
-    }
-
-    private sealed class TestConfigurationSection : IConfigurationSection
-    {
-        public TestConfigurationSection(string key, string? value)
-        {
-            Key = key;
-            Path = key;
-            Value = value;
-        }
-
-        public string? this[string key]
-        {
-            get => null;
-            set { }
-        }
-
-        public string Key { get; }
-        public string Path { get; }
-        public string? Value { get; set; }
-
-        public IEnumerable<IConfigurationSection> GetChildren()
-        {
-            return Array.Empty<IConfigurationSection>();
-        }
-
-        public IChangeToken GetReloadToken()
-        {
-            return TestChangeToken.Instance;
-        }
-
-        public IConfigurationSection GetSection(string key)
-        {
-            return new TestConfigurationSection(key, null);
-        }
-    }
-
-    private sealed class TestChangeToken : IChangeToken
-    {
-        public static readonly TestChangeToken Instance = new();
-
-        public bool HasChanged => false;
-        public bool ActiveChangeCallbacks => false;
-
-        public IDisposable RegisterChangeCallback(Action<object?> callback, object? state)
-        {
-            return NoopDisposable.Instance;
-        }
-    }
-
-    private sealed class NoopDisposable : IDisposable
-    {
-        public static readonly NoopDisposable Instance = new();
-
-        public void Dispose()
-        {
         }
     }
 

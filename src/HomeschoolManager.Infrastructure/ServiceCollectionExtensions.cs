@@ -11,6 +11,16 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
+        services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
+        services.PostConfigure<StorageOptions>(options =>
+        {
+            // Honor the legacy flat key when the section does not specify a path.
+            if (string.IsNullOrWhiteSpace(options.FilePath))
+            {
+                options.FilePath = configuration[StorageOptions.LegacyFilePathKey];
+            }
+        });
+
         services.AddSingleton<HomeschoolDataStore>();
         services.AddScoped<IStudentRepository, JsonStudentRepository>();
         services.AddScoped<IRepository<Course>, JsonCourseRepository>();

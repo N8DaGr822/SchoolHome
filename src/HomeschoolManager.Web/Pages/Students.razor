@@ -669,7 +669,7 @@
 
     private static DateTime GetGradeDate(Grade grade)
     {
-        return grade.Date == default ? grade.GradedDate : grade.Date;
+        return grade.GradedDate;
     }
 
     private static string GetGradeColor(string grade)

@@ -5,35 +5,65 @@ using HomeschoolManager.Infrastructure.Data;
 
 namespace HomeschoolManager.Infrastructure.Repositories;
 
-public class JsonYearbookRepository : IYearbookRepository
+public class JsonYearbookRepository : JsonRepositoryBase<Yearbook>, IYearbookRepository
 {
-    private readonly HomeschoolDataStore _store;
-
     public JsonYearbookRepository(HomeschoolDataStore store)
+        : base(store)
     {
-        _store = store;
     }
 
-    public async Task<Yearbook?> GetByIdAsync(int id)
+    private protected override List<Yearbook> Items(HomeschoolData data) => data.Yearbooks;
+
+    protected override string EntityLabel => "Yearbook";
+
+    private protected override Yearbook Hydrate(HomeschoolData data, Yearbook entity) =>
+        RepositoryProjection.HydrateYearbook(data, entity);
+
+    protected override Yearbook Normalize(Yearbook entity)
     {
-        var data = await _store.ReadAsync();
-        var yearbook = data.Yearbooks.FirstOrDefault(y => y.Id == id);
-        return yearbook == null ? null : RepositoryProjection.HydrateYearbook(data, yearbook);
+        entity.Title = entity.Title?.Trim() ?? string.Empty;
+        entity.SchoolYear = entity.SchoolYear?.Trim() ?? string.Empty;
+        entity.StartDate = entity.StartDate.Date;
+        entity.EndDate = entity.EndDate.Date;
+        return entity;
     }
 
-    public async Task<IEnumerable<Yearbook>> GetAllAsync()
+    private protected override IEnumerable<Yearbook> Order(HomeschoolData data, IEnumerable<Yearbook> items) =>
+        items.OrderByDescending(y => y.StartDate).ThenBy(y => y.Title);
+
+    private protected override void Validate(HomeschoolData data, Yearbook entity)
     {
-        var data = await _store.ReadAsync();
-        return data.Yearbooks
-            .OrderByDescending(y => y.StartDate)
-            .ThenBy(y => y.Title)
-            .Select(y => RepositoryProjection.HydrateYearbook(data, y))
-            .ToList();
+        if (string.IsNullOrWhiteSpace(entity.Title))
+        {
+            throw new InvalidOperationException("Title is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(entity.SchoolYear))
+        {
+            throw new InvalidOperationException("School year is required.");
+        }
+
+        if (entity.EndDate < entity.StartDate)
+        {
+            throw new InvalidOperationException("Start date must be before or equal to end date.");
+        }
+
+        if (entity.Scope == YearbookScope.Student && (!entity.StudentId.HasValue || !data.Students.Any(s => s.Id == entity.StudentId.Value)))
+        {
+            throw new InvalidOperationException("Student is required for student yearbooks.");
+        }
+    }
+
+    private protected override void OnDeleting(HomeschoolData data, int id)
+    {
+        var pageIds = data.YearbookPages.Where(p => p.YearbookId == id).Select(p => p.Id).ToHashSet();
+        data.YearbookPages.RemoveAll(p => p.YearbookId == id);
+        data.YearbookAssets.RemoveAll(a => a.YearbookId == id || (a.YearbookPageId.HasValue && pageIds.Contains(a.YearbookPageId.Value)));
     }
 
     public async Task<IEnumerable<Yearbook>> GetByFamilyIdAsync(int familyId)
     {
-        var data = await _store.ReadAsync();
+        var data = await Store.ReadAsync();
         return data.Yearbooks
             .Where(y => y.FamilyId == familyId)
             .OrderByDescending(y => y.StartDate)
@@ -42,57 +72,9 @@ public class JsonYearbookRepository : IYearbookRepository
             .ToList();
     }
 
-    public async Task<Yearbook> AddAsync(Yearbook entity)
-    {
-        var saved = NormalizeYearbook(HomeschoolDataStore.Clone(entity));
-        await _store.WriteAsync(data =>
-        {
-            ValidateYearbook(data, saved);
-            saved.Id = saved.Id == 0 ? NextId(data.Yearbooks.Select(y => y.Id)) : saved.Id;
-            saved.CreatedAt = saved.CreatedAt == default ? DateTime.UtcNow : saved.CreatedAt;
-            data.Yearbooks.Add(saved);
-        });
-
-        return await GetByIdAsync(saved.Id) ?? saved;
-    }
-
-    public async Task UpdateAsync(Yearbook entity)
-    {
-        var updated = NormalizeYearbook(HomeschoolDataStore.Clone(entity));
-        await _store.WriteAsync(data =>
-        {
-            var index = data.Yearbooks.FindIndex(y => y.Id == updated.Id);
-            if (index < 0)
-            {
-                throw new InvalidOperationException($"Yearbook {updated.Id} was not found.");
-            }
-
-            ValidateYearbook(data, updated);
-            updated.CreatedAt = updated.CreatedAt == default ? data.Yearbooks[index].CreatedAt : updated.CreatedAt;
-            data.Yearbooks[index] = updated;
-        });
-    }
-
-    public async Task DeleteAsync(int id)
-    {
-        await _store.WriteAsync(data =>
-        {
-            data.Yearbooks.RemoveAll(y => y.Id == id);
-            var pageIds = data.YearbookPages.Where(p => p.YearbookId == id).Select(p => p.Id).ToHashSet();
-            data.YearbookPages.RemoveAll(p => p.YearbookId == id);
-            data.YearbookAssets.RemoveAll(a => a.YearbookId == id || (a.YearbookPageId.HasValue && pageIds.Contains(a.YearbookPageId.Value)));
-        });
-    }
-
-    public async Task<bool> ExistsAsync(int id)
-    {
-        var data = await _store.ReadAsync();
-        return data.Yearbooks.Any(y => y.Id == id);
-    }
-
     public async Task<IEnumerable<YearbookPage>> GetPagesAsync(int yearbookId)
     {
-        var data = await _store.ReadAsync();
+        var data = await Store.ReadAsync();
         return data.YearbookPages
             .Where(p => p.YearbookId == yearbookId)
             .OrderBy(p => p.SortOrder)
@@ -103,7 +85,7 @@ public class JsonYearbookRepository : IYearbookRepository
 
     public async Task<YearbookPage?> GetPageByIdAsync(int pageId)
     {
-        var data = await _store.ReadAsync();
+        var data = await Store.ReadAsync();
         var page = data.YearbookPages.FirstOrDefault(p => p.Id == pageId);
         return page == null ? null : RepositoryProjection.HydrateYearbookPage(data, page);
     }
@@ -111,7 +93,7 @@ public class JsonYearbookRepository : IYearbookRepository
     public async Task<YearbookPage> AddPageAsync(YearbookPage page)
     {
         var saved = NormalizePage(HomeschoolDataStore.Clone(page));
-        await _store.WriteAsync(data =>
+        await Store.WriteAsync(data =>
         {
             ValidatePage(data, saved);
             saved.Id = saved.Id == 0 ? NextId(data.YearbookPages.Select(p => p.Id)) : saved.Id;
@@ -125,7 +107,7 @@ public class JsonYearbookRepository : IYearbookRepository
     public async Task UpdatePageAsync(YearbookPage page)
     {
         var updated = NormalizePage(HomeschoolDataStore.Clone(page));
-        await _store.WriteAsync(data =>
+        await Store.WriteAsync(data =>
         {
             var index = data.YearbookPages.FindIndex(p => p.Id == updated.Id);
             if (index < 0)
@@ -141,7 +123,7 @@ public class JsonYearbookRepository : IYearbookRepository
 
     public async Task DeletePageAsync(int pageId)
     {
-        await _store.WriteAsync(data =>
+        await Store.WriteAsync(data =>
         {
             data.YearbookPages.RemoveAll(p => p.Id == pageId);
             data.YearbookAssets.RemoveAll(a => a.YearbookPageId == pageId);
@@ -151,7 +133,7 @@ public class JsonYearbookRepository : IYearbookRepository
     public async Task SavePagesAsync(int yearbookId, IEnumerable<YearbookPage> pages)
     {
         var updatedPages = pages.Select(p => NormalizePage(HomeschoolDataStore.Clone(p))).ToList();
-        await _store.WriteAsync(data =>
+        await Store.WriteAsync(data =>
         {
             if (!data.Yearbooks.Any(y => y.Id == yearbookId))
             {
@@ -181,7 +163,7 @@ public class JsonYearbookRepository : IYearbookRepository
 
     public async Task<IEnumerable<YearbookAsset>> GetAssetsAsync(int yearbookId)
     {
-        var data = await _store.ReadAsync();
+        var data = await Store.ReadAsync();
         return data.YearbookAssets
             .Where(a => a.YearbookId == yearbookId)
             .OrderBy(a => a.Title)
@@ -192,7 +174,7 @@ public class JsonYearbookRepository : IYearbookRepository
     public async Task SaveAssetsAsync(int yearbookId, IEnumerable<YearbookAsset> assets)
     {
         var updatedAssets = assets.Select(a => NormalizeAsset(HomeschoolDataStore.Clone(a))).ToList();
-        await _store.WriteAsync(data =>
+        await Store.WriteAsync(data =>
         {
             if (!data.Yearbooks.Any(y => y.Id == yearbookId))
             {
@@ -220,15 +202,6 @@ public class JsonYearbookRepository : IYearbookRepository
         });
     }
 
-    private static Yearbook NormalizeYearbook(Yearbook yearbook)
-    {
-        yearbook.Title = yearbook.Title?.Trim() ?? string.Empty;
-        yearbook.SchoolYear = yearbook.SchoolYear?.Trim() ?? string.Empty;
-        yearbook.StartDate = yearbook.StartDate.Date;
-        yearbook.EndDate = yearbook.EndDate.Date;
-        return yearbook;
-    }
-
     private static YearbookPage NormalizePage(YearbookPage page)
     {
         page.Title = page.Title?.Trim() ?? string.Empty;
@@ -243,29 +216,6 @@ public class JsonYearbookRepository : IYearbookRepository
         asset.SourcePath = asset.SourcePath?.Trim() ?? string.Empty;
         asset.Caption = asset.Caption?.Trim() ?? string.Empty;
         return asset;
-    }
-
-    private static void ValidateYearbook(HomeschoolData data, Yearbook yearbook)
-    {
-        if (string.IsNullOrWhiteSpace(yearbook.Title))
-        {
-            throw new InvalidOperationException("Title is required.");
-        }
-
-        if (string.IsNullOrWhiteSpace(yearbook.SchoolYear))
-        {
-            throw new InvalidOperationException("School year is required.");
-        }
-
-        if (yearbook.EndDate < yearbook.StartDate)
-        {
-            throw new InvalidOperationException("Start date must be before or equal to end date.");
-        }
-
-        if (yearbook.Scope == YearbookScope.Student && (!yearbook.StudentId.HasValue || !data.Students.Any(s => s.Id == yearbook.StudentId.Value)))
-        {
-            throw new InvalidOperationException("Student is required for student yearbooks.");
-        }
     }
 
     private static void ValidatePage(HomeschoolData data, YearbookPage page)
@@ -316,10 +266,5 @@ public class JsonYearbookRepository : IYearbookRepository
         {
             throw new InvalidOperationException("Asset title is required.");
         }
-    }
-
-    private static int NextId(IEnumerable<int> ids)
-    {
-        return ids.DefaultIfEmpty(0).Max() + 1;
     }
 }

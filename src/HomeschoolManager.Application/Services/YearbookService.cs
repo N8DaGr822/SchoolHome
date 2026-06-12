@@ -1,6 +1,8 @@
 using System.Text.Json;
 using HomeschoolManager.Core.Entities;
 using HomeschoolManager.Core.Interfaces;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HomeschoolManager.Application.Services;
 
@@ -12,17 +14,20 @@ public class YearbookService : IYearbookService
     private readonly IStudentRepository _studentRepository;
     private readonly IPortfolioRepository _portfolioRepository;
     private readonly IAttendanceRepository _attendanceRepository;
+    private readonly ILogger<YearbookService> _logger;
 
     public YearbookService(
         IYearbookRepository yearbookRepository,
         IStudentRepository studentRepository,
         IPortfolioRepository portfolioRepository,
-        IAttendanceRepository attendanceRepository)
+        IAttendanceRepository attendanceRepository,
+        ILogger<YearbookService>? logger = null)
     {
         _yearbookRepository = yearbookRepository;
         _studentRepository = studentRepository;
         _portfolioRepository = portfolioRepository;
         _attendanceRepository = attendanceRepository;
+        _logger = logger ?? NullLogger<YearbookService>.Instance;
     }
 
     public async Task<IEnumerable<Yearbook>> GetYearbooksAsync(int familyId = 1)
@@ -212,8 +217,9 @@ public class YearbookService : IYearbookService
                 .ThenBy(i => i.Title)
                 .ToList();
         }
-        catch
+        catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException)
         {
+            _logger.LogWarning(ex, "Could not load portfolio items for yearbook {YearbookId}; continuing with an empty set.", yearbook.Id);
             return Array.Empty<PortfolioItem>();
         }
     }
@@ -228,8 +234,9 @@ public class YearbookService : IYearbookService
                 .OrderBy(a => a.Date)
                 .ToList();
         }
-        catch
+        catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException)
         {
+            _logger.LogWarning(ex, "Could not load field trips for yearbook {YearbookId}; continuing with an empty set.", yearbook.Id);
             return Array.Empty<AttendanceRecord>();
         }
     }
@@ -278,7 +285,7 @@ public class YearbookService : IYearbookService
                 ? body.GetString() ?? string.Empty
                 : page.ContentJson;
         }
-        catch
+        catch (JsonException)
         {
             return page.ContentJson;
         }
