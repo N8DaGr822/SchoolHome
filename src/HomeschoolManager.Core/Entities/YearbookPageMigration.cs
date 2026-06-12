@@ -2,7 +2,6 @@ namespace HomeschoolManager.Core.Entities;
 
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 
 public static class YearbookPageMigration
 {
@@ -30,7 +29,7 @@ public static class YearbookPageMigration
 
     private static void AddTextElement(YearbookPage page)
     {
-        var text = ExtractLegacyText(page.ContentJson);
+        var text = page.Content.Body;
         if (string.IsNullOrWhiteSpace(text))
         {
             return;
@@ -112,42 +111,6 @@ public static class YearbookPageMigration
                 ObjectFit = "cover"
             });
         }
-    }
-
-    private static string? ExtractLegacyText(string? contentJson)
-    {
-        if (string.IsNullOrWhiteSpace(contentJson) || contentJson.Trim() == "{}")
-        {
-            return null;
-        }
-
-        try
-        {
-            using var document = JsonDocument.Parse(contentJson);
-            if (document.RootElement.ValueKind == JsonValueKind.Object)
-            {
-                if (document.RootElement.TryGetProperty("body", out var body))
-                {
-                    return body.GetString();
-                }
-
-                if (document.RootElement.TryGetProperty("text", out var text))
-                {
-                    return text.GetString();
-                }
-            }
-
-            if (document.RootElement.ValueKind == JsonValueKind.String)
-            {
-                return document.RootElement.GetString();
-            }
-        }
-        catch (JsonException)
-        {
-            return contentJson;
-        }
-
-        return null;
     }
 
     private static int NextZIndex(YearbookPage page)

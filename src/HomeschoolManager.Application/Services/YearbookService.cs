@@ -8,8 +8,6 @@ namespace HomeschoolManager.Application.Services;
 
 public class YearbookService : IYearbookService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
     private readonly IYearbookRepository _yearbookRepository;
     private readonly IStudentRepository _studentRepository;
     private readonly IPortfolioRepository _portfolioRepository;
@@ -70,14 +68,15 @@ public class YearbookService : IYearbookService
     public async Task<YearbookPage> AddCustomPageAsync(int yearbookId)
     {
         var pages = (await _yearbookRepository.GetPagesAsync(yearbookId)).ToList();
-        return await _yearbookRepository.AddPageAsync(new YearbookPage
+        var page = new YearbookPage
         {
             YearbookId = yearbookId,
             Title = "Custom Page",
             SortOrder = pages.Count == 0 ? 0 : pages.Max(p => p.SortOrder) + 1,
-            ContentJson = CreateContentJson("Custom Page", "Add memories, photos, and reflections here."),
             CreatedAt = DateTime.UtcNow
-        });
+        };
+        page.Content = new PageContent("Custom Page", "Add memories, photos, and reflections here.");
+        return await _yearbookRepository.AddPageAsync(page);
     }
 
     public async Task UpdatePageAsync(YearbookPage page)
@@ -193,13 +192,17 @@ public class YearbookService : IYearbookService
         };
 
         return pageTemplates
-            .Select((template, index) => new YearbookPage
+            .Select((template, index) =>
             {
-                YearbookId = yearbook.Id,
-                Title = template.Title,
-                SortOrder = index,
-                ContentJson = CreateContentJson(template.Title, template.Body),
-                CreatedAt = DateTime.UtcNow
+                var page = new YearbookPage
+                {
+                    YearbookId = yearbook.Id,
+                    Title = template.Title,
+                    SortOrder = index,
+                    CreatedAt = DateTime.UtcNow
+                };
+                page.Content = new PageContent(template.Title, template.Body);
+                return page;
             })
             .ToList();
     }
@@ -276,29 +279,11 @@ public class YearbookService : IYearbookService
         return string.Join("\n", fieldTrips.Select(f => $"{f.Date:MM/dd/yyyy} - {f.Notes}"));
     }
 
-    public static string GetPlainText(YearbookPage page)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(page.ContentJson);
-            return document.RootElement.TryGetProperty("body", out var body)
-                ? body.GetString() ?? string.Empty
-                : page.ContentJson;
-        }
-        catch (JsonException)
-        {
-            return page.ContentJson;
-        }
-    }
+    public static string GetPlainText(YearbookPage page) => page.Content.Body;
 
     public static void SetPlainText(YearbookPage page, string body)
     {
-        page.ContentJson = CreateContentJson(page.Title, body ?? string.Empty);
-    }
-
-    private static string CreateContentJson(string heading, string body)
-    {
-        return JsonSerializer.Serialize(new YearbookPageContent(heading, body), JsonOptions);
+        page.Content = new PageContent(page.Title, body ?? string.Empty);
     }
 
     private static void ValidateYearbook(Yearbook yearbook)
@@ -332,7 +317,11 @@ public class YearbookService : IYearbookService
     private static void ValidatePage(YearbookPage page)
     {
         page.Title = page.Title?.Trim() ?? string.Empty;
-        page.ContentJson = string.IsNullOrWhiteSpace(page.ContentJson) ? "{}" : page.ContentJson.Trim();
+        if (string.IsNullOrWhiteSpace(page.ContentJson))
+        {
+            page.ContentJson = "{}";
+        }
+
         YearbookPageMigration.EnsureElements(page);
 
         if (string.IsNullOrWhiteSpace(page.Title))
@@ -344,16 +333,6 @@ public class YearbookService : IYearbookService
         {
             throw new InvalidOperationException("Page sort order must be non-negative.");
         }
-
-        try
-        {
-            using var _ = JsonDocument.Parse(page.ContentJson);
-        }
-        catch (JsonException ex)
-        {
-            throw new InvalidOperationException("ContentJson must be valid JSON.", ex);
-        }
     }
 
-    private sealed record YearbookPageContent(string Heading, string Body);
 }

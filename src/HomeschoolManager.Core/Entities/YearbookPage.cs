@@ -1,10 +1,14 @@
 namespace HomeschoolManager.Core.Entities;
 
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using HomeschoolManager.Core.Interfaces;
 
 public class YearbookPage : IEntity
 {
+    private static readonly JsonSerializerOptions ContentSerializerOptions = new(JsonSerializerDefaults.Web);
+
     public int Id { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "Yearbook is required.")]
@@ -21,6 +25,29 @@ public class YearbookPage : IEntity
 
     [Required]
     public string ContentJson { get; set; } = "{}";
+
+    [JsonIgnore]
+    public PageContent Content
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(ContentJson) || ContentJson.Trim() == "{}")
+            {
+                return new PageContent(Title, string.Empty);
+            }
+
+            try
+            {
+                return JsonSerializer.Deserialize<PageContent>(ContentJson, ContentSerializerOptions)
+                       ?? new PageContent(Title, string.Empty);
+            }
+            catch (JsonException)
+            {
+                return new PageContent(Title, ContentJson);
+            }
+        }
+        set => ContentJson = JsonSerializer.Serialize(value, ContentSerializerOptions);
+    }
 
     public List<PageElement> Elements { get; set; } = new();
 
