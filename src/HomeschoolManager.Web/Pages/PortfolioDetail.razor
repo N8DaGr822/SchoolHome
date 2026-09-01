@@ -1,9 +1,11 @@
 @page "/portfolio/{Id:int}"
 @using HomeschoolManager.Application.Services
 @using HomeschoolManager.Core.Entities
+@using HomeschoolManager.Infrastructure.Data
 @inject IPortfolioService PortfolioService
 @inject IStudentService StudentService
 @inject ICourseService CourseService
+@inject PortfolioFileUrlResolver PortfolioFileUrlResolver
 
 <PageTitle>Portfolio Item - Homeschool Manager</PageTitle>
 
@@ -67,8 +69,17 @@
                     <dd class="col-sm-9">
                         @if (!string.IsNullOrWhiteSpace(item.StoredFilePath))
                         {
-                            <div>@item.OriginalFileName</div>
-                            <small class="text-muted">@item.StoredFilePath</small>
+                            @if (isImageFile && resolvedFileUrl is not null)
+                            {
+                                <img src="@resolvedFileUrl" alt="@item.OriginalFileName" class="img-fluid rounded mb-2" style="max-height: 320px;" />
+                            }
+                            <div>
+                                @item.OriginalFileName
+                                @if (resolvedFileUrl is not null)
+                                {
+                                    <a href="@resolvedFileUrl" target="_blank" rel="noopener noreferrer" class="ms-2">View file</a>
+                                }
+                            </div>
                         }
                         else
                         {
@@ -89,6 +100,8 @@
     private List<Student> students = new();
     private List<Course> courses = new();
     private string? errorMessage;
+    private string? resolvedFileUrl;
+    private bool isImageFile;
 
     protected override async Task OnInitializedAsync()
     {
@@ -100,6 +113,12 @@
             if (item is null)
             {
                 errorMessage = "Portfolio item was not found.";
+            }
+            else if (!string.IsNullOrWhiteSpace(item.StoredFilePath))
+            {
+                isImageFile = !string.IsNullOrWhiteSpace(item.ContentType)
+                    && item.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+                resolvedFileUrl = await PortfolioFileUrlResolver.GetUrlAsync(item.StoredFilePath);
             }
         }
         catch (Exception ex)

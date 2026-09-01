@@ -1,0 +1,79 @@
+<div class="yearbook-toolbar d-flex flex-wrap align-items-center gap-2 mb-3">
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="OnAddTextBox">
+        <span class="oi oi-text" aria-hidden="true"></span> Add Text Box
+    </button>
+
+    <select class="form-select form-select-sm yearbook-toolbar-photo-select"
+            value="@SelectedPhotoItemId"
+            @onchange="UpdateSelectedPhoto">
+        @if (!PhotoCandidates.Any())
+        {
+            <option value="">No photos available</option>
+        }
+        else
+        {
+            <option value="">Select photo...</option>
+            @foreach (var photo in PhotoCandidates)
+            {
+                <option value="@photo.Id">@photo.Title</option>
+            }
+        }
+    </select>
+
+    <button type="button"
+            class="btn btn-sm btn-outline-primary"
+            disabled="@(!SelectedPhotoItemId.HasValue)"
+            @onclick="OnAddPhoto">
+        <span class="oi oi-image" aria-hidden="true"></span> Add Photo
+    </button>
+
+    <button type="button"
+            class="btn btn-sm btn-outline-secondary"
+            disabled="@(!HasSelection)"
+            @onclick="OnDuplicateSelected">
+        <span class="oi oi-layers" aria-hidden="true"></span> Duplicate Selected
+    </button>
+
+    <button type="button"
+            class="btn btn-sm btn-outline-danger"
+            disabled="@(!HasSelection)"
+            @onclick="OnDeleteSelected">
+        <span class="oi oi-trash" aria-hidden="true"></span> Delete Selected
+    </button>
+</div>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<PortfolioItem> PhotoCandidates { get; set; } = Array.Empty<PortfolioItem>();
+
+    [Parameter]
+    public int? SelectedPhotoItemId { get; set; }
+
+    [Parameter]
+    public EventCallback<int?> SelectedPhotoItemIdChanged { get; set; }
+
+    [Parameter]
+    public Guid? SelectedElementId { get; set; }
+
+    [Parameter]
+    public EventCallback OnAddTextBox { get; set; }
+
+    [Parameter]
+    public EventCallback OnAddPhoto { get; set; }
+
+    [Parameter]
+    public EventCallback OnDuplicateSelected { get; set; }
+
+    [Parameter]
+    public EventCallback OnDeleteSelected { get; set; }
+
+    private bool HasSelection => SelectedElementId.HasValue;
+
+    private async Task UpdateSelectedPhoto(ChangeEventArgs args)
+    {
+        SelectedPhotoItemId = int.TryParse(args.Value?.ToString(), out var itemId)
+            ? itemId
+            : null;
+        await SelectedPhotoItemIdChanged.InvokeAsync(SelectedPhotoItemId);
+    }
+}

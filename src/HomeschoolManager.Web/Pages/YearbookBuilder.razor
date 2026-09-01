@@ -1,6 +1,8 @@
 @page "/yearbooks/{Id:int}"
 @using HomeschoolManager.Application.Services
+@using HomeschoolManager.Infrastructure.Data
 @inject IYearbookService YearbookService
+@inject PortfolioFileUrlResolver PortfolioFileUrlResolver
 @inject IJSRuntime JS
 
 <PageTitle>Yearbook Builder - Homeschool Manager</PageTitle>
@@ -76,6 +78,13 @@
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Layout</label>
+                                <YearbookToolbar PhotoCandidates="photoCandidates"
+                                                 @bind-SelectedPhotoItemId="editor.SelectedPhotoItemId"
+                                                 SelectedElementId="editor.SelectedElementId"
+                                                 OnAddTextBox="() => AddTextBox(editor)"
+                                                 OnAddPhoto="() => AddPhoto(editor)"
+                                                 OnDuplicateSelected="() => DuplicateSelected(editor)"
+                                                 OnDeleteSelected="() => DeleteSelected(editor)" />
                                 <PageCanvas Page="editor.Page" @bind-SelectedElementId="editor.SelectedElementId" />
                             </div>
                             <div>
@@ -128,6 +137,8 @@
     private Yearbook? yearbook;
     private List<PageEditor> pageEditors = new();
     private List<PortfolioItem> portfolioItems = new();
+    private List<PortfolioItem> photoCandidates = new();
+    private readonly Dictionary<string, string> resolvedImageUrls = new();
     private string? statusMessage;
     private string? errorMessage;
 
@@ -166,6 +177,26 @@
                 selectedByPage.TryGetValue(p.Id, out var selectedIds) ? selectedIds : new HashSet<int>()))
             .ToList() ?? new List<PageEditor>();
         portfolioItems = (await YearbookService.GetPortfolioCandidatesAsync(Id)).ToList();
+        photoCandidates = portfolioItems.Where(IsPhotoCandidate).ToList();
+        await ResolveImageUrlsAsync();
+    }
+
+    private async Task ResolveImageUrlsAsync()
+    {
+        resolvedImageUrls.Clear();
+        foreach (var item in portfolioItems)
+        {
+            if (string.IsNullOrWhiteSpace(item.StoredFilePath) || !IsImageFile(item.StoredFilePath, item.ContentType))
+            {
+                continue;
+            }
+
+            var url = await PortfolioFileUrlResolver.GetUrlAsync(item.StoredFilePath);
+            if (url is not null)
+            {
+                resolvedImageUrls[item.StoredFilePath] = url;
+            }
+        }
     }
 
     private async Task AddPageAsync()
@@ -230,6 +261,51 @@
         }
     }
 
+    private void AddTextBox(PageEditor editor)
+    {
+        var element = YearbookEditorActions.AddTextBox(editor.Page);
+        editor.SelectedElementId = element.Id;
+    }
+
+    private void AddPhoto(PageEditor editor)
+    {
+        if (!editor.SelectedPhotoItemId.HasValue)
+        {
+            return;
+        }
+
+        var photo = photoCandidates.FirstOrDefault(item => item.Id == editor.SelectedPhotoItemId.Value);
+        if (photo is null)
+        {
+            return;
+        }
+
+        var element = YearbookEditorActions.AddPhoto(editor.Page, photo);
+        editor.SelectedPortfolioItemIds.Add(photo.Id);
+        editor.SelectedElementId = element.Id;
+    }
+
+    private void DuplicateSelected(PageEditor editor)
+    {
+        var duplicate = YearbookEditorActions.DuplicateSelectedElement(editor.Page, editor.SelectedElementId);
+        if (duplicate is not null)
+        {
+            editor.SelectedElementId = duplicate.Id;
+        }
+    }
+
+    private void DeleteSelected(PageEditor editor)
+    {
+        var deleted = YearbookEditorActions.DeleteSelectedElement(editor.Page, editor.SelectedElementId);
+        if (deleted is null)
+        {
+            return;
+        }
+
+        RemoveDeletedPhotoSelection(editor, deleted);
+        editor.SelectedElementId = null;
+    }
+
     private async Task DeletePageAsync(YearbookPage page)
     {
         var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete page \"{page.Title}\"?");
@@ -248,30 +324,14 @@
         errorMessage = null;
     }
 
-    private static string? GetImageSource(PortfolioItem item)
+    private string? GetImageSource(PortfolioItem item)
     {
-        var source = !string.IsNullOrWhiteSpace(item.StoredFilePath)
-            ? item.StoredFilePath
-            : item.ExternalUrl;
-
-        if (string.IsNullOrWhiteSpace(source))
+        if (!string.IsNullOrWhiteSpace(item.StoredFilePath) && resolvedImageUrls.TryGetValue(item.StoredFilePath, out var resolvedUrl))
         {
-            return null;
+            return resolvedUrl;
         }
 
-        if (IsImageUrl(source))
-        {
-            return source;
-        }
-
-        if (File.Exists(source) && IsImageFile(source, item.ContentType))
-        {
-            var contentType = GetContentType(source, item.ContentType);
-            var bytes = File.ReadAllBytes(source);
-            return $"data:{contentType};base64,{Convert.ToBase64String(bytes)}";
-        }
-
-        return null;
+        return IsImageUrl(item.ExternalUrl) ? item.ExternalUrl : null;
     }
 
     private static bool IsImageUrl(string value)
@@ -285,6 +345,13 @@
             && IsImageFile(uri.AbsolutePath, contentType: null);
     }
 
+    private static bool IsPhotoCandidate(PortfolioItem item)
+    {
+        return item.Type == PortfolioItemType.Photo
+            || IsImageFile(item.StoredFilePath, item.ContentType)
+            || IsImageFile(item.ExternalUrl, item.ContentType);
+    }
+
     private static bool IsImageFile(string path, string? contentType)
     {
         if (!string.IsNullOrWhiteSpace(contentType) && contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
@@ -296,30 +363,23 @@
         return normalized.EndsWith(".jpg") || normalized.EndsWith(".jpeg") || normalized.EndsWith(".png") || normalized.EndsWith(".gif") || normalized.EndsWith(".webp");
     }
 
-    private static string GetContentType(string path, string? contentType)
+    private void RemoveDeletedPhotoSelection(PageEditor editor, PageElement deleted)
     {
-        if (!string.IsNullOrWhiteSpace(contentType) && contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        if (deleted.Type != PageElementType.Photo)
         {
-            return contentType;
+            return;
         }
 
-        var normalized = path.ToLowerInvariant();
-        if (normalized.EndsWith(".png"))
+        var matchingPortfolioItemId = editor.SelectedPortfolioItemIds.FirstOrDefault(itemId =>
+            deleted.PhotoId == YearbookEditorActions.GetPortfolioPhotoId(itemId)
+            || photoCandidates.Any(photo =>
+                photo.Id == itemId
+                && !string.IsNullOrWhiteSpace(deleted.Src)
+                && string.Equals(YearbookEditorActions.GetPhotoSource(photo), deleted.Src, StringComparison.OrdinalIgnoreCase)));
+        if (matchingPortfolioItemId > 0)
         {
-            return "image/png";
+            editor.SelectedPortfolioItemIds.Remove(matchingPortfolioItemId);
         }
-
-        if (normalized.EndsWith(".gif"))
-        {
-            return "image/gif";
-        }
-
-        if (normalized.EndsWith(".webp"))
-        {
-            return "image/webp";
-        }
-
-        return "image/jpeg";
     }
 
     private sealed class PageEditor
@@ -335,5 +395,6 @@
         public string Body { get; set; }
         public HashSet<int> SelectedPortfolioItemIds { get; }
         public Guid? SelectedElementId { get; set; }
+        public int? SelectedPhotoItemId { get; set; }
     }
 }

@@ -1,6 +1,8 @@
 @page "/yearbooks/{Id:int}/preview"
 @using HomeschoolManager.Application.Services
+@using HomeschoolManager.Infrastructure.Data
 @inject IYearbookService YearbookService
+@inject PortfolioFileUrlResolver PortfolioFileUrlResolver
 @inject IJSRuntime JS
 
 <PageTitle>Yearbook Preview - Homeschool Manager</PageTitle>
@@ -76,6 +78,7 @@
     [Parameter] public int Id { get; set; }
 
     private Yearbook? yearbook;
+    private readonly Dictionary<string, string> resolvedImageUrls = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -85,6 +88,27 @@
             foreach (var page in yearbook.Pages)
             {
                 YearbookPageMigration.EnsureElements(page, yearbook.Assets);
+            }
+
+            await ResolveImageUrlsAsync();
+        }
+    }
+
+    private async Task ResolveImageUrlsAsync()
+    {
+        foreach (var asset in yearbook!.Assets)
+        {
+            var source = GetSource(asset);
+            var contentType = asset.PortfolioItem?.ContentType;
+            if (string.IsNullOrWhiteSpace(source) || IsImageUrl(source) || !IsImageFile(source, contentType))
+            {
+                continue;
+            }
+
+            var url = await PortfolioFileUrlResolver.GetUrlAsync(source);
+            if (url is not null)
+            {
+                resolvedImageUrls[source] = url;
             }
         }
     }
@@ -101,13 +125,16 @@
             .OrderBy(a => a.Title) ?? Enumerable.Empty<YearbookAsset>();
     }
 
-    private static string? GetImageSource(YearbookAsset asset)
+    private static string? GetSource(YearbookAsset asset)
     {
-        var source = !string.IsNullOrWhiteSpace(asset.SourcePath)
+        return !string.IsNullOrWhiteSpace(asset.SourcePath)
             ? asset.SourcePath
             : asset.PortfolioItem?.StoredFilePath ?? asset.PortfolioItem?.ExternalUrl;
-        var contentType = asset.PortfolioItem?.ContentType;
+    }
 
+    private string? GetImageSource(YearbookAsset asset)
+    {
+        var source = GetSource(asset);
         if (string.IsNullOrWhiteSpace(source))
         {
             return null;
@@ -118,14 +145,7 @@
             return source;
         }
 
-        if (File.Exists(source) && IsImageFile(source, contentType))
-        {
-            var resolvedContentType = GetContentType(source, contentType);
-            var bytes = File.ReadAllBytes(source);
-            return $"data:{resolvedContentType};base64,{Convert.ToBase64String(bytes)}";
-        }
-
-        return null;
+        return resolvedImageUrls.TryGetValue(source, out var resolvedUrl) ? resolvedUrl : null;
     }
 
     private static bool IsImageUrl(string value)
@@ -148,32 +168,6 @@
 
         var normalized = path.ToLowerInvariant();
         return normalized.EndsWith(".jpg") || normalized.EndsWith(".jpeg") || normalized.EndsWith(".png") || normalized.EndsWith(".gif") || normalized.EndsWith(".webp");
-    }
-
-    private static string GetContentType(string path, string? contentType)
-    {
-        if (!string.IsNullOrWhiteSpace(contentType) && contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-        {
-            return contentType;
-        }
-
-        var normalized = path.ToLowerInvariant();
-        if (normalized.EndsWith(".png"))
-        {
-            return "image/png";
-        }
-
-        if (normalized.EndsWith(".gif"))
-        {
-            return "image/gif";
-        }
-
-        if (normalized.EndsWith(".webp"))
-        {
-            return "image/webp";
-        }
-
-        return "image/jpeg";
     }
 
     private static string Display(string value)

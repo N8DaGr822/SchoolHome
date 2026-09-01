@@ -2,7 +2,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.ComponentModel.DataAnnotations;
 using HomeschoolManager.Core.Entities;
-using Microsoft.Extensions.Configuration;
 
 namespace HomeschoolManager.Infrastructure.Data;
 
@@ -15,20 +14,15 @@ public sealed class HomeschoolDataStore
     };
 
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private readonly string _filePath;
+    private readonly IDataStorageProvider _provider;
     private HomeschoolData? _data;
 
-    public string FilePath => _filePath;
-    public string BackupFilePath => $"{_filePath}.bak";
+    public string FilePath => _provider.Description;
+    public string BackupFilePath => _provider.BackupDescription;
 
-    public HomeschoolDataStore(IConfiguration configuration)
+    public HomeschoolDataStore(IDataStorageProvider provider)
     {
-        _filePath = Path.GetFullPath(ResolveDataFilePath(configuration));
-    }
-
-    public HomeschoolDataStore(string filePath)
-    {
-        _filePath = Path.GetFullPath(filePath);
+        _provider = provider;
     }
 
     public async Task<string> ExportJsonAsync()
@@ -111,77 +105,24 @@ public sealed class HomeschoolDataStore
             return _data;
         }
 
-        if (!File.Exists(_filePath))
+        var content = await _provider.ReadAsync();
+        if (content == null)
         {
             _data = SeedData.Create();
             await SaveAsync(_data);
             return _data;
         }
 
-        await using var stream = File.OpenRead(_filePath);
-        _data = await JsonSerializer.DeserializeAsync<HomeschoolData>(stream, JsonOptions) ?? new HomeschoolData();
+        _data = JsonSerializer.Deserialize<HomeschoolData>(content, JsonOptions) ?? new HomeschoolData();
         PrepareForStorage(_data);
         return _data;
     }
 
     private async Task SaveAsync(HomeschoolData data)
     {
-        var directory = Path.GetDirectoryName(_filePath);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
         Validate(data);
-
-        var tempPath = $"{_filePath}.{Guid.NewGuid():N}.tmp";
-        try
-        {
-            await using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            {
-                await JsonSerializer.SerializeAsync(stream, data, JsonOptions);
-                await stream.FlushAsync();
-            }
-
-            if (File.Exists(_filePath))
-            {
-                if (File.Exists(BackupFilePath))
-                {
-                    File.Delete(BackupFilePath);
-                }
-
-                File.Replace(tempPath, _filePath, BackupFilePath, ignoreMetadataErrors: true);
-            }
-            else
-            {
-                File.Move(tempPath, _filePath);
-            }
-        }
-        catch
-        {
-            if (File.Exists(tempPath))
-            {
-                File.Delete(tempPath);
-            }
-
-            throw;
-        }
-    }
-
-    private static string ResolveDataFilePath(IConfiguration configuration)
-    {
-        var configuredPath = configuration["DataStorage:FilePath"] ?? configuration["DataFilePath"];
-        if (!string.IsNullOrWhiteSpace(configuredPath))
-        {
-            return configuredPath;
-        }
-
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var storageRoot = string.IsNullOrWhiteSpace(localAppData)
-            ? AppContext.BaseDirectory
-            : Path.Combine(localAppData, "HomeschoolManager");
-
-        return Path.Combine(storageRoot, "homeschool-data.json");
+        var content = JsonSerializer.Serialize(data, JsonOptions);
+        await _provider.WriteAsync(content);
     }
 
     private static void Normalize(HomeschoolData data)

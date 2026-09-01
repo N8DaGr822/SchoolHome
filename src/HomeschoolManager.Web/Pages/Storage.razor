@@ -77,10 +77,10 @@
         <div class="col-lg-8">
             <div class="card h-100">
                 <div class="card-header">
-                    <h5 class="mb-0">Device Storage</h5>
+                    <h5 class="mb-0">Browser Storage</h5>
                 </div>
                 <div class="card-body">
-                    <label class="form-label" for="dataPath">Data file</label>
+                    <label class="form-label" for="dataPath">Data location</label>
                     <input id="dataPath" class="form-control font-monospace" value="@DataStore.FilePath" readonly />
 
                     <div class="d-flex flex-wrap gap-2 mt-3">
@@ -103,14 +103,12 @@
         <div class="col-lg-4">
             <div class="card h-100">
                 <div class="card-header">
-                    <h5 class="mb-0">Custom Location</h5>
+                    <h5 class="mb-0">About This Storage</h5>
                 </div>
                 <div class="card-body">
                     <dl class="mb-0">
-                        <dt>Default</dt>
-                        <dd class="text-muted">User local app data</dd>
-                        <dt>Override</dt>
-                        <dd class="text-muted">Set <code>DataStorage:FilePath</code></dd>
+                        <dt>Scope</dt>
+                        <dd class="text-muted">Private to this browser on this device</dd>
                         <dt>Latest backup</dt>
                         <dd class="text-muted mb-0"><code>@DataStore.BackupFilePath</code></dd>
                     </dl>

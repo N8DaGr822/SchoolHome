@@ -359,6 +359,11 @@ a,
     width: min(100%, 680px);
 }
 
+.yearbook-toolbar-photo-select {
+    max-width: 18rem;
+    min-width: 12rem;
+}
+
 .editable-element {
     background: transparent;
     box-sizing: border-box;

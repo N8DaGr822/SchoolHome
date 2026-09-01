@@ -22,7 +22,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task StudentRepository_PersistsAddedStudentAcrossStoreInstances()
     {
-        var firstRepository = new JsonStudentRepository(new HomeschoolDataStore(_dataFilePath));
+        var firstRepository = new JsonStudentRepository(new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath)));
         var created = await firstRepository.AddAsync(new Student
         {
             FirstName = "Noah",
@@ -32,7 +32,7 @@ public class JsonRepositoryTests : IDisposable
             EnrollmentDate = DateTime.Today
         });
 
-        var secondRepository = new JsonStudentRepository(new HomeschoolDataStore(_dataFilePath));
+        var secondRepository = new JsonStudentRepository(new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath)));
         var reloaded = await secondRepository.GetByIdAsync(created.Id);
 
         Assert.NotNull(reloaded);
@@ -43,13 +43,13 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task AssignmentRepository_CompletedAssignmentIsRemovedFromOpenAssignments()
     {
-        var repository = new JsonAssignmentRepository(new HomeschoolDataStore(_dataFilePath));
+        var repository = new JsonAssignmentRepository(new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath)));
         var openAssignment = (await repository.GetOpenAssignmentsAsync()).First();
         openAssignment.Status = AssignmentStatus.Completed;
 
         await repository.UpdateAsync(openAssignment);
 
-        var reopenedRepository = new JsonAssignmentRepository(new HomeschoolDataStore(_dataFilePath));
+        var reopenedRepository = new JsonAssignmentRepository(new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath)));
         var openAssignments = await reopenedRepository.GetOpenAssignmentsAsync();
 
         Assert.DoesNotContain(openAssignments, a => a.Id == openAssignment.Id);
@@ -59,7 +59,7 @@ public class JsonRepositoryTests : IDisposable
     public void DataStore_UsesLocalAppDataByDefault()
     {
         var configuration = new TestConfiguration();
-        var store = new HomeschoolDataStore(configuration);
+        var provider = new FileDataStorageProvider(configuration);
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var expectedRoot = string.IsNullOrWhiteSpace(localAppData)
             ? AppContext.BaseDirectory
@@ -67,7 +67,7 @@ public class JsonRepositoryTests : IDisposable
 
         Assert.Equal(
             Path.GetFullPath(Path.Combine(expectedRoot, "homeschool-data.json")),
-            store.FilePath);
+            provider.FilePath);
     }
 
     [Fact]
@@ -77,15 +77,15 @@ public class JsonRepositoryTests : IDisposable
         var configuration = new TestConfiguration();
         configuration["DataStorage:FilePath"] = customPath;
 
-        var store = new HomeschoolDataStore(configuration);
+        var provider = new FileDataStorageProvider(configuration);
 
-        Assert.Equal(Path.GetFullPath(customPath), store.FilePath);
+        Assert.Equal(Path.GetFullPath(customPath), provider.FilePath);
     }
 
     [Fact]
     public async Task DataStore_ExportsAndImportsJsonBackups()
     {
-        var originalStore = new HomeschoolDataStore(_dataFilePath);
+        var originalStore = new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath));
         var originalRepository = new JsonStudentRepository(originalStore);
         var created = await originalRepository.AddAsync(new Student
         {
@@ -100,7 +100,7 @@ public class JsonRepositoryTests : IDisposable
         await using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json));
 
         var importedPath = Path.Combine(_testDirectory, "imported-data.json");
-        var importedStore = new HomeschoolDataStore(importedPath);
+        var importedStore = new HomeschoolDataStore(new FileDataStorageProvider(importedPath));
         await importedStore.ImportJsonAsync(stream);
 
         var importedRepository = new JsonStudentRepository(importedStore);
@@ -114,7 +114,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task DataStore_ExportIncludesSchemaVersion()
     {
-        var store = new HomeschoolDataStore(_dataFilePath);
+        var store = new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath));
 
         var json = await store.ExportJsonAsync();
         await using var stream = StreamFromString(json);
@@ -139,7 +139,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task YearbookRepository_CreatesYearbookAndSavesPages()
     {
-        var repository = new JsonYearbookRepository(new HomeschoolDataStore(_dataFilePath));
+        var repository = new JsonYearbookRepository(new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath)));
         var yearbook = await repository.AddAsync(new Yearbook
         {
             FamilyId = 1,
@@ -188,7 +188,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task YearbookRepository_MigratesLegacyTextAndAssetsToPageElements()
     {
-        var store = new HomeschoolDataStore(_dataFilePath);
+        var store = new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath));
         var portfolioRepository = new JsonPortfolioRepository(store);
         var photo = await portfolioRepository.AddAsync(new PortfolioItem
         {
@@ -246,7 +246,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task YearbookRepository_RejectsInvalidPageJson()
     {
-        var repository = new JsonYearbookRepository(new HomeschoolDataStore(_dataFilePath));
+        var repository = new JsonYearbookRepository(new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath)));
         var yearbook = await repository.AddAsync(new Yearbook
         {
             FamilyId = 1,
@@ -272,7 +272,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task ParentNoteRepository_CreatesAndFiltersNotes()
     {
-        var store = new HomeschoolDataStore(_dataFilePath);
+        var store = new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath));
         var lessonRepository = new JsonLessonPlanRepository(store);
         var lesson = await lessonRepository.AddAsync(new LessonPlan
         {
@@ -314,7 +314,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task CurriculumResourceRepository_CreatesResources()
     {
-        var repository = new JsonCurriculumResourceRepository(new HomeschoolDataStore(_dataFilePath));
+        var repository = new JsonCurriculumResourceRepository(new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath)));
         var created = await repository.AddAsync(new CurriculumResource
         {
             SubjectId = 3,
@@ -336,7 +336,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task StudentCurriculumRepository_AssignsResourceAndPreventsDuplicates()
     {
-        var store = new HomeschoolDataStore(_dataFilePath);
+        var store = new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath));
         var resourceRepository = new JsonCurriculumResourceRepository(store);
         var studentCurriculumRepository = new JsonStudentCurriculumRepository(store);
         var resource = await resourceRepository.AddAsync(new CurriculumResource
@@ -372,7 +372,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task StudentCurriculumRepository_UpdatesProgress()
     {
-        var repository = new JsonStudentCurriculumRepository(new HomeschoolDataStore(_dataFilePath));
+        var repository = new JsonStudentCurriculumRepository(new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath)));
         var item = await repository.AddAsync(new StudentCurriculum
         {
             StudentId = 3,
@@ -398,7 +398,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task StudentCurriculumRepository_RejectsInvalidProgress()
     {
-        var repository = new JsonStudentCurriculumRepository(new HomeschoolDataStore(_dataFilePath));
+        var repository = new JsonStudentCurriculumRepository(new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath)));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             repository.AddAsync(new StudentCurriculum
@@ -414,7 +414,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task PortfolioRepository_CreatesAndFiltersPortfolioItems()
     {
-        var repository = new JsonPortfolioRepository(new HomeschoolDataStore(_dataFilePath));
+        var repository = new JsonPortfolioRepository(new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath)));
         var item = await repository.AddAsync(new PortfolioItem
         {
             StudentId = 1,
@@ -443,7 +443,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task PortfolioRepository_ReturnsAssignmentAndLessonLinkedItems()
     {
-        var store = new HomeschoolDataStore(_dataFilePath);
+        var store = new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath));
         var lessonRepository = new JsonLessonPlanRepository(store);
         var lesson = await lessonRepository.AddAsync(new LessonPlan
         {
@@ -476,7 +476,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task AttendanceRepository_PreventsDuplicateStudentDateRecords()
     {
-        var repository = new JsonAttendanceRepository(new HomeschoolDataStore(_dataFilePath));
+        var repository = new JsonAttendanceRepository(new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath)));
         var date = new DateTime(2026, 1, 8);
         await repository.AddAsync(new AttendanceRecord
         {
@@ -500,7 +500,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task LessonPlanRepository_PersistsAndFiltersWeeklyLessons()
     {
-        var repository = new JsonLessonPlanRepository(new HomeschoolDataStore(_dataFilePath));
+        var repository = new JsonLessonPlanRepository(new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath)));
         var plannedDate = new DateTime(2026, 5, 27);
         var created = await repository.AddAsync(new LessonPlan
         {
@@ -513,7 +513,7 @@ public class JsonRepositoryTests : IDisposable
             EstimatedMinutes = 30
         });
 
-        var reopenedRepository = new JsonLessonPlanRepository(new HomeschoolDataStore(_dataFilePath));
+        var reopenedRepository = new JsonLessonPlanRepository(new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath)));
         var week = (await reopenedRepository.GetByWeekAsync(new DateTime(2026, 5, 25), studentId: 1, subjectId: 1)).ToList();
 
         Assert.Single(week);
@@ -524,7 +524,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task DataStore_RejectsImportWithDanglingReferences()
     {
-        var store = new HomeschoolDataStore(_dataFilePath);
+        var store = new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath));
         const string json = """
             {
               "schemaVersion": 1,
@@ -564,7 +564,7 @@ public class JsonRepositoryTests : IDisposable
     [Fact]
     public async Task DataStore_ImportCreatesBackupOfPreviousData()
     {
-        var targetStore = new HomeschoolDataStore(_dataFilePath);
+        var targetStore = new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath));
         var targetRepository = new JsonStudentRepository(targetStore);
         await targetRepository.AddAsync(new Student
         {
@@ -576,7 +576,7 @@ public class JsonRepositoryTests : IDisposable
         });
 
         var sourcePath = Path.Combine(_testDirectory, "source-data.json");
-        var sourceStore = new HomeschoolDataStore(sourcePath);
+        var sourceStore = new HomeschoolDataStore(new FileDataStorageProvider(sourcePath));
         var sourceRepository = new JsonStudentRepository(sourceStore);
         await sourceRepository.AddAsync(new Student
         {
@@ -596,7 +596,7 @@ public class JsonRepositoryTests : IDisposable
         var backupJson = await File.ReadAllTextAsync(targetStore.BackupFilePath);
         Assert.Contains("Taylor", backupJson);
 
-        var reloadedRepository = new JsonStudentRepository(new HomeschoolDataStore(_dataFilePath));
+        var reloadedRepository = new JsonStudentRepository(new HomeschoolDataStore(new FileDataStorageProvider(_dataFilePath)));
         var students = (await reloadedRepository.GetAllAsync()).ToList();
         Assert.Contains(students, s => s.FirstName == "Morgan" && s.LastName == "Imported");
         Assert.DoesNotContain(students, s => s.FirstName == "Taylor" && s.LastName == "Original");

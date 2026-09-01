@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using HomeschoolManager.Core.Entities;
 using HomeschoolManager.Core.Interfaces;
@@ -9,8 +8,9 @@ namespace HomeschoolManager.Infrastructure;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
     {
+        services.AddSingleton<IDataStorageProvider, BrowserDataStorageProvider>();
         services.AddSingleton<HomeschoolDataStore>();
         services.AddScoped<IStudentRepository, JsonStudentRepository>();
         services.AddScoped<IRepository<Course>, JsonCourseRepository>();
@@ -23,7 +23,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IStudentCurriculumRepository, JsonStudentCurriculumRepository>();
         services.AddScoped<IParentNoteRepository, JsonParentNoteRepository>();
         services.AddScoped<IYearbookRepository, JsonYearbookRepository>();
-        services.AddScoped<IPortfolioFileStorage, PortfolioFileStorage>();
+        services.AddScoped<IPortfolioFileStorage, BrowserPortfolioFileStorage>();
+        services.AddScoped<PortfolioFileUrlResolver>();
 
         return services;
     }

@@ -5,9 +5,9 @@
      @onclick:stopPropagation="true">
     @if (Element.Type == PageElementType.Photo)
     {
-        @if (!string.IsNullOrWhiteSpace(Element.Src))
+        @if (!string.IsNullOrWhiteSpace(resolvedPhotoSrc))
         {
-            <img src="@Element.Src"
+            <img src="@resolvedPhotoSrc"
                  alt=""
                  draggable="false"
                  class="editable-element-photo"
@@ -44,6 +44,9 @@
 </div>
 
 @code {
+    [Inject]
+    private HomeschoolManager.Infrastructure.Data.PortfolioFileUrlResolver PortfolioFileUrlResolver { get; set; } = null!;
+
     [Parameter, EditorRequired]
     public PageElement Element { get; set; } = null!;
 
@@ -52,6 +55,35 @@
 
     [Parameter]
     public EventCallback<PageElement> OnSelected { get; set; }
+
+    private string? resolvedPhotoSrc;
+    private string? lastResolvedSrc;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Element.Type != PageElementType.Photo || string.IsNullOrWhiteSpace(Element.Src))
+        {
+            resolvedPhotoSrc = null;
+            lastResolvedSrc = null;
+            return;
+        }
+
+        if (Element.Src == lastResolvedSrc)
+        {
+            return;
+        }
+
+        lastResolvedSrc = Element.Src;
+        resolvedPhotoSrc = IsHttpUrl(Element.Src)
+            ? Element.Src
+            : await PortfolioFileUrlResolver.GetUrlAsync(Element.Src);
+    }
+
+    private static bool IsHttpUrl(string value)
+    {
+        return Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            && uri.Scheme.StartsWith("http", StringComparison.OrdinalIgnoreCase);
+    }
 
     private string ElementClass => IsSelected
         ? "editable-element editable-element-selected"
